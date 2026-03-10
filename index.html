@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>260310 SWDT AI 교육 자료</title>
+<style>
+  :root { --bg:#0a0e1a;--card:#1a2235;--border:#2d3a52;--accent:#6366f1;--accent2:#22d3ee;--accent3:#f59e0b;--accent4:#10b981;--text:#e2e8f0;--muted:#94a3b8; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;}
+  .hero{background:linear-gradient(135deg,#0a0e1a,#1a1040,#0a1628);padding:64px 24px;text-align:center;border-bottom:1px solid var(--border);}
+  .hero h1{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;background:linear-gradient(90deg,#6366f1,#22d3ee,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .hero p{margin-top:12px;color:var(--muted);}
+  .hero-meta{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  .badge{background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);color:var(--accent2);padding:4px 14px;border-radius:20px;font-size:0.78rem;}
+  .container{max-width:900px;margin:0 auto;padding:48px 24px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;text-decoration:none;color:var(--text);transition:border-color .2s,transform .2s,box-shadow .2s;display:flex;flex-direction:column;gap:10px;}
+  .card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 32px rgba(99,102,241,0.15);}
+  .card-icon{font-size:2rem;}
+  .card-cat{font-size:0.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+  .card h3{font-size:1rem;font-weight:700;}
+  .card p{font-size:0.83rem;color:var(--muted);line-height:1.6;flex:1;}
+  .card-link{font-size:0.8rem;color:var(--accent2);}
+  .sec{font-size:0.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:40px 0 16px;}
+  footer{text-align:center;padding:32px;color:var(--muted);font-size:0.82rem;border-top:1px solid var(--border);}
+  footer a{color:var(--accent2);}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>SWDT AI 교육 자료</h1>
+  <p>2026년 3월 10일 세션에서 제작된 시각화 자료 모음</p>
+  <div class="hero-meta">
+    <span class="badge">📅 2026.03.10</span>
+    <span class="badge">👤 Sungjin Kim</span>
+    <span class="badge">📄 HTML 7개</span>
+  </div>
+</div>
+<div class="container">
+  <div class="sec">🤖 AI / LLM 이해</div>
+  <div class="grid">
+    <a class="card" href="llm_how_it_works.html">
+      <div class="card-icon">🧠</div>
+      <div class="card-cat" style="color:#6366f1;">LLM 기초</div>
+      <h3>LLM 동작 원리</h3>
+      <p>유래부터 트랜스포머, 어텐션까지 일반인 눈높이로 설명.</p>
+      <span class="card-link">열기 →</span>
+    </a>
+    <a class="card" href="llm_explained_easy.html">
+      <div class="card-icon">💡</div>
+      <div class="card-cat" style="color:#22d3ee;">쉬운 버전</div>
+      <h3>LLM 쉽게 이해하기</h3>
+      <p>비유와 시각화 중심. 형광펜=어텐션, 치킨집=뉴런.</p>
+      <span class="card-link">열기 →</span>
+    </a>
+    <a class="card" href="llm_for_engineers.html">
+      <div class="card-icon">⚙️</div>
+      <div class="card-cat" style="color:#f59e0b;">개발자용</div>
+      <h3>LLM — CS/개발자 분석</h3>
+      <p>행렬 곱, 역전파, 트랜스포머를 코드 레벨로 설명.</p>
+      <span class="card-link">열기 →</span>
+    </a>
+    <a class="card" href="llm_learning_guide.html">
+      <div class="card-icon">📚</div>
+      <div class="card-cat" style="color:#10b981;">학습 가이드</div>
+      <h3>LLM으로 학습하는 방법</h3>
+      <p>5가지 학습 모드, 바로 쓰는 프롬프트 템플릿.</p>
+      <span class="card-link">열기 →</span>
+    </a>
+  </div>
+  <div class="sec">🛠️ AI 코딩 도구</div>
+  <div class="grid">
+    <a class="card" href="beginner_guide.html">
+      <div class="card-icon">🚀</div>
+      <div class="card-cat" style="color:#6366f1;">비기너 가이드</div>
+      <h3>AI 에이전트 코딩 도구</h3>
+      <p>Claude Code, Cursor, OpenCode 등 바이브코딩 툴 입문.</p>
+      <span class="card-link">열기 →</span>
+    </a>
+    <a class="card" href="chat_summary.html">
+      <div class="card-icon">💬</div>
+      <div class="card-cat" style="color:#22d3ee;">채팅 분석</div>
+      <h3>카카오톡 그룹 채팅 분석</h3>
+      <p>2개월 AI 커뮤니티 채팅 데이터 시각화 대시보드.</p>
+      <span class="card-link">열기 →</span>
+    </a>
+  </div>
+  <div class="sec">📈 투자 / 시장 분석</div>
+  <div class="grid">
+    <a class="card" href="samsung_stock.html">
+      <div class="card-icon">📊</div>
+      <div class="card-cat" style="color:#f59e0b;">주가 분석</div>
+      <h3>삼성전자 주가 분석</h3>
+      <p>2018 액면분할~2026 HBM4 신고가. 과거·현재·미래.</p>
+      <span class="card-link">열기 →</span>
+    </a>
+  </div>
+</div>
+<footer>
+  SWDT AI 교육 자료 | 2026.03.10 | Sungjin Kim<br>
+  <a href="https://github.com/supremejin03-dotcom/260310_SWDT_AI">GitHub 레포지토리</a>
+</footer>
+</body>
+</html>
