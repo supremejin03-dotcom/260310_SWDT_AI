@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM 동작 원리 — CS/SW 개발자를 위한 기술적 분석</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --card: #1c2433;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #d29922;
+    --accent4: #f78166;
+    --accent5: #bc8cff;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --code-bg: #161b22;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', -apple-system, sans-serif; line-height: 1.7; }
+
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,17,23,0.97); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px; display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
+    font-size: 0.83rem;
+  }
+  nav .logo { color: var(--accent); font-weight: 700; font-size: 0.95rem; margin-right: 10px; font-family: monospace; }
+  nav a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+  nav a:hover { color: var(--accent); }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(160deg, #0d1117 0%, #1a1033 60%, #0d1117 100%);
+    padding: 72px 24px 56px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 { font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 800; font-family: monospace;
+    background: linear-gradient(90deg, #58a6ff, #3fb950, #d29922);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero .subtitle { margin-top: 14px; font-size: 1rem; color: var(--muted); max-width: 620px; margin-inline: auto; }
+  .hero-tags { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+  .tag { background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3);
+    color: var(--accent); padding: 3px 12px; border-radius: 20px; font-size: 0.78rem; font-family: monospace; }
+
+  /* LAYOUT */
+  .container { max-width: 1080px; margin: 0 auto; padding: 56px 24px; }
+  section { margin-bottom: 80px; }
+  .section-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 10px; font-family: monospace; }
+  .section-title .num { color: var(--accent3); font-size: 1rem; }
+  .section-sub { color: var(--muted); margin-bottom: 28px; font-size: 0.95rem; border-left: 3px solid var(--border); padding-left: 12px; }
+
+  /* CODE BLOCK */
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 20px; overflow-x: auto; font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.85rem; line-height: 1.6; margin: 16px 0;
+  }
+  code { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.88em; }
+  .inline-code { background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.2);
+    color: #79c0ff; padding: 1px 6px; border-radius: 4px; font-size: 0.88em; font-family: monospace; }
+
+  /* SYNTAX HIGHLIGHT */
+  .kw { color: #ff7b72; } /* keyword */
+  .ty { color: #79c0ff; } /* type */
+  .fn { color: #d2a8ff; } /* function */
+  .cm { color: #8b949e; } /* comment */
+  .st { color: #a5d6ff; } /* string */
+  .nm { color: #f0883e; } /* number */
+  .op { color: #ff7b72; } /* operator */
+  .py-kw { color: #ff7b72; }
+  .py-fn { color: #d2a8ff; }
+  .py-cm { color: #8b949e; font-style: italic; }
+  .py-str { color: #a5d6ff; }
+  .py-num { color: #f0883e; }
+
+  /* CARDS */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 24px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+
+  /* HIGHLIGHT */
+  .hl { background: rgba(88,166,255,0.08); border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 16px 0; }
+  .hl.green { background: rgba(63,185,80,0.08); border-color: var(--accent2); }
+  .hl.yellow { background: rgba(210,153,34,0.08); border-color: var(--accent3); }
+  .hl.red { background: rgba(247,129,102,0.1); border-color: var(--accent4); }
+  .hl.purple { background: rgba(188,140,255,0.08); border-color: var(--accent5); }
+
+  /* MATRIX */
+  .matrix { display: inline-block; border-left: 2px solid var(--muted); border-right: 2px solid var(--muted);
+    padding: 8px 12px; margin: 4px; vertical-align: middle; }
+  .matrix table { border-collapse: collapse; }
+  .matrix td { padding: 3px 8px; text-align: center; font-family: monospace; font-size: 0.85rem; color: var(--accent); min-width: 36px; }
+  .matrix-label { display: inline-block; font-size: 0.75rem; color: var(--muted); text-align: center; margin-top: 4px; }
+
+  /* FORMULA */
+  .formula { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 24px; margin: 16px 0; text-align: center; font-family: monospace;
+    font-size: 1rem; color: var(--accent3); letter-spacing: 0.5px; }
+
+  /* FLOW */
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  .flow-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 16px; font-size: 0.85rem; text-align: center; }
+  .flow-box.active { border-color: var(--accent); background: rgba(88,166,255,0.1); color: var(--accent); }
+  .flow-box.green { border-color: var(--accent2); background: rgba(63,185,80,0.1); color: var(--accent2); }
+  .flow-box.yellow { border-color: var(--accent3); background: rgba(210,153,34,0.1); color: var(--accent3); }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--surface); color: var(--accent); font-size: 0.8rem; text-transform: uppercase;
+    letter-spacing: 0.5px; padding: 12px 16px; text-align: left; font-family: monospace; }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+  td code { color: var(--accent3); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* STEP */
+  .step-row { display: flex; gap: 16px; align-items: flex-start; padding: 20px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card); margin-bottom: 8px; }
+  .step-num { min-width: 36px; height: 36px; border-radius: 50%; background: var(--accent);
+    color: #000; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
+  .step-body h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; font-family: monospace; }
+  .step-body p { color: var(--muted); font-size: 0.87rem; }
+
+  /* STAT */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; text-align: center; }
+  .stat .val { font-size: 1.6rem; font-weight: 800; font-family: monospace; color: var(--accent3); }
+  .stat .lbl { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+  /* CHART */
+  .chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+
+  /* ATTENTION MATRIX */
+  .attn-matrix td { width: 52px; height: 40px; text-align: center; font-size: 0.75rem;
+    font-family: monospace; font-weight: 600; border: 1px solid var(--bg); border-radius: 3px; }
+  .attn-matrix th { background: transparent; color: var(--muted); font-size: 0.75rem;
+    padding: 6px; text-align: center; }
+
+  /* FOOTER */
+  footer { text-align: center; padding: 40px 24px; color: var(--muted); font-size: 0.82rem;
+    border-top: 1px solid var(--border); font-family: monospace; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">// LLM for Engineers</span>
+  <a href="#data-struct">자료구조</a>
+  <a href="#forward">Forward Pass</a>
+  <a href="#backprop">역전파</a>
+  <a href="#transformer">Transformer</a>
+  <a href="#attention">Attention</a>
+  <a href="#training-loop">학습 루프</a>
+  <a href="#inference">추론</a>
+  <a href="#gpu">GPU/메모리</a>
+</nav>
+
+<div class="hero">
+  <h1>LLM: C를 아는 개발자를 위한 기술적 분석</h1>
+  <p class="subtitle">포인터·배열·함수 합성은 알지만 LLM은 처음인 분들을 위해.<br>행렬 곱셈과 미분이 어떻게 인공지능이 되는지 코드 레벨에서 설명합니다.</p>
+  <div class="hero-tags">
+    <span class="tag">float32 배열</span>
+    <span class="tag">행렬 곱셈 (GEMM)</span>
+    <span class="tag">Chain Rule</span>
+    <span class="tag">Softmax</span>
+    <span class="tag">Transformer</span>
+    <span class="tag">CUDA</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ============================
+  0. 핵심 통찰
+============================= -->
+<section>
+  <div class="section-title"><span class="num">00</span> 먼저 알아야 할 핵심 통찰</div>
+  <div class="hl" style="font-size:1rem;">
+    <strong>LLM은 거대한 float32 배열 + 행렬 곱셈의 반복입니다.</strong><br>
+    복잡해 보이지만 본질은 단순합니다. 수십억 개의 부동소수점 숫자를 저장한 파일에, 입력 벡터를 순서대로 곱해 나가면 "다음 단어"가 나옵니다.
+  </div>
+  <div class="grid-3" style="margin-top:16px;">
+    <div class="card">
+      <div style="font-family:monospace; color:var(--accent3); margin-bottom:6px; font-size:0.85rem;">파라미터 = 가중치</div>
+      <code style="font-size:0.82rem; color:var(--muted);">float32 W[512][512];<br>// 이게 수십억 개</code>
+    </div>
+    <div class="card">
+      <div style="font-family:monospace; color:var(--accent2); margin-bottom:6px; font-size:0.85rem;">추론 = 행렬 곱 연속</div>
+      <code style="font-size:0.82rem; color:var(--muted);">y = W_n * (... W_2 * (W_1 * x))</code>
+    </div>
+    <div class="card">
+      <div style="font-family:monospace; color:var(--accent); margin-bottom:6px; font-size:0.85rem;">학습 = 미분으로 W 수정</div>
+      <code style="font-size:0.82rem; color:var(--muted);">W -= lr * dLoss/dW</code>
+    </div>
+  </div>
+</section>
+
+<!-- ============================
+  1. 자료구조
+============================= -->
+<section id="data-struct">
+  <div class="section-title"><span class="num">01</span> 자료구조 — 실제로 메모리에 뭐가 있나?</div>
+  <p class="section-sub">LLM 파일(예: llama-7b.bin)을 열면 거대한 float32 배열들입니다. 이것이 "파라미터"입니다.</p>
+
+  <div class="grid-2">
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">C로 표현하면:</p>
+      <pre><span class="cm">/* 하나의 Transformer 레이어 가중치 구조체 */</span>
+<span class="kw">typedef struct</span> {
+    <span class="cm">/* 어텐션 (Q, K, V, Output 행렬) */</span>
+    <span class="ty">float</span> *wq;   <span class="cm">/* [d_model × d_model] */</span>
+    <span class="ty">float</span> *wk;   <span class="cm">/* [d_model × d_model] */</span>
+    <span class="ty">float</span> *wv;   <span class="cm">/* [d_model × d_model] */</span>
+    <span class="ty">float</span> *wo;   <span class="cm">/* [d_model × d_model] */</span>
+
+    <span class="cm">/* 피드포워드 (FFN) */</span>
+    <span class="ty">float</span> *w1;   <span class="cm">/* [d_model × d_ff]   */</span>
+    <span class="ty">float</span> *w2;   <span class="cm">/* [d_ff   × d_model] */</span>
+
+    <span class="cm">/* Layer Normalization */</span>
+    <span class="ty">float</span> *gamma; <span class="cm">/* [d_model] */</span>
+    <span class="ty">float</span> *beta;  <span class="cm">/* [d_model] */</span>
+} <span class="ty">TransformerLayer</span>;
+
+<span class="kw">typedef struct</span> {
+    <span class="ty">float</span> *token_embedding; <span class="cm">/* [vocab_size × d_model] */</span>
+    <span class="ty">TransformerLayer</span> layers[<span class="nm">32</span>];  <span class="cm">/* N개 레이어 */</span>
+    <span class="ty">float</span> *lm_head;          <span class="cm">/* [d_model × vocab_size] */</span>
+} <span class="ty">LLM</span>;</pre>
+    </div>
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">실제 크기 계산 (LLaMA-7B 기준):</p>
+      <div class="card" style="font-family:monospace; font-size:0.82rem; line-height:2;">
+        <div><span style="color:var(--muted);">// d_model = 4096, d_ff = 11008, layers = 32</span></div>
+        <div><span style="color:var(--accent3);">vocab_size</span> = 32,000</div>
+        <div><span style="color:var(--accent3);">token_embed</span> = 32000 × 4096 = <span style="color:var(--accent2);">131M params</span></div>
+        <div><span style="color:var(--accent3);">wq (1 layer)</span> = 4096 × 4096 = <span style="color:var(--accent2);">16.7M params</span></div>
+        <div><span style="color:var(--accent3);">wq × 4 × 32</span>  = <span style="color:var(--accent2);">2.1B params</span></div>
+        <div><span style="color:var(--accent3);">ffn × 32</span>     = <span style="color:var(--accent2);">4.6B params</span></div>
+        <div style="border-top:1px solid var(--border); margin-top:8px; padding-top:8px;">
+          <span style="color:var(--accent);">총합 ≈ 7B params × 4 bytes = <span style="color:var(--accent4);">~28GB</span></span>
+        </div>
+      </div>
+      <div class="hl yellow" style="margin-top:12px;">
+        <strong>포인트:</strong> 7B 모델 파일 크기가 28GB인 이유. float32 = 4바이트. 70B 모델 = ~280GB. 그래서 GPU VRAM이 중요합니다.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:24px;">
+    <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">토큰 임베딩 — 단어를 벡터로 변환 (룩업 테이블):</p>
+    <pre><span class="cm">/* 토큰 임베딩: 단어 ID → float 벡터 (단순 배열 인덱싱) */</span>
+<span class="ty">float</span>* <span class="fn">get_embedding</span>(<span class="ty">LLM</span> *model, <span class="ty">int</span> token_id) {
+    <span class="cm">/* token_embedding[token_id] 행을 반환 — O(1) 룩업 */</span>
+    <span class="kw">return</span> model->token_embedding + token_id * d_model;
+    <span class="cm">/* "고양이"(id=1234) → 4096개의 float 벡터 */</span>
+}
+<span class="cm">/* 예: "안녕" → token_id=592 → embedding[592] → [0.23, -1.4, 0.87, ...] (4096개) */</span></pre>
+  </div>
+</section>
+
+<!-- ============================
+  2. Forward Pass
+============================= -->
+<section id="forward">
+  <div class="section-title"><span class="num">02</span> Forward Pass — 데이터가 흘러가는 과정</div>
+  <p class="section-sub">입력 토큰이 들어와서 다음 토큰 확률로 나오기까지. 모든 것은 행렬 곱셈(matmul)의 연속입니다.</p>
+
+  <div class="flow" style="margin-bottom:24px;">
+    <div class="flow-box active">"안녕<br>하세요"</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">토큰화<br>[592, 214]</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box yellow">임베딩<br>2×4096 행렬</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box active">Transformer<br>×32</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box green">Softmax<br>확률 분포</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box green">다음 토큰<br>샘플링</div>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">핵심 연산: 행렬-벡터 곱 (Linear Layer)</p>
+      <pre><span class="cm">/*
+ * y = W * x + b  (선형 변환)
+ * x: 입력 벡터   [d_in]
+ * W: 가중치 행렬 [d_out × d_in]
+ * y: 출력 벡터   [d_out]
+ */</span>
+<span class="ty">void</span> <span class="fn">linear</span>(<span class="ty">float</span> *y, <span class="ty">float</span> *W, <span class="ty">float</span> *x,
+              <span class="ty">float</span> *b, <span class="ty">int</span> d_out, <span class="ty">int</span> d_in) {
+    <span class="kw">for</span> (<span class="ty">int</span> i = <span class="nm">0</span>; i < d_out; i++) {
+        y[i] = b ? b[i] : <span class="nm">0.0f</span>;
+        <span class="kw">for</span> (<span class="ty">int</span> j = <span class="nm">0</span>; j < d_in; j++) {
+            y[i] += W[i * d_in + j] * x[j];
+        }
+    }
+}
+<span class="cm">/* 이 O(n²) 루프가 LLM의 90% 이상 연산
+ * GPU는 이것을 수천 코어로 병렬화 */</span></pre>
+    </div>
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">활성화 함수: GELU (비선형성 추가)</p>
+      <pre><span class="cm">/* GELU: 현대 LLM의 기본 활성화 함수
+ * ReLU(x) = max(0,x) 의 부드러운 버전 */</span>
+<span class="ty">float</span> <span class="fn">gelu</span>(<span class="ty">float</span> x) {
+    <span class="cm">/* 근사 공식 */</span>
+    <span class="ty">float</span> c = <span class="nm">0.044715f</span>;
+    <span class="ty">float</span> inner = sqrtf(<span class="nm">2.0f</span> / M_PI)
+                  * (x + c * x*x*x);
+    <span class="kw">return</span> <span class="nm">0.5f</span> * x * (<span class="nm">1.0f</span> + tanhf(inner));
+}
+<span class="cm">/* 왜 필요? 비선형이 없으면
+ * W3*(W2*(W1*x)) = (W3*W2*W1)*x
+ * → 그냥 하나의 행렬로 축약 가능
+ * → 레이어를 여러 개 쌓는 의미가 없음! */</span></pre>
+      <div class="hl green" style="margin-top:10px;">
+        <strong>핵심:</strong> 비선형 활성화 함수 없이는 아무리 레이어를 쌓아도 선형 변환 하나와 같습니다. GELU가 "표현력"을 만듭니다.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">Layer Normalization — 학습 안정화의 핵심</p>
+    <pre><span class="cm">/* LayerNorm: 각 레이어 출력을 정규화 (평균=0, 분산=1)
+ * Batch Norm과 다름: 배치 차원이 아닌 feature 차원 정규화 */</span>
+<span class="ty">void</span> <span class="fn">layer_norm</span>(<span class="ty">float</span> *y, <span class="ty">float</span> *x, <span class="ty">float</span> *gamma,
+                  <span class="ty">float</span> *beta, <span class="ty">int</span> d, <span class="ty">float</span> eps) {
+    <span class="cm">/* 평균 계산 */</span>
+    <span class="ty">float</span> mean = <span class="nm">0</span>;
+    <span class="kw">for</span> (<span class="ty">int</span> i=<span class="nm">0</span>; i<d; i++) mean += x[i];
+    mean /= d;
+
+    <span class="cm">/* 분산 계산 */</span>
+    <span class="ty">float</span> var = <span class="nm">0</span>;
+    <span class="kw">for</span> (<span class="ty">int</span> i=<span class="nm">0</span>; i<d; i++) var += (x[i]-mean)*(x[i]-mean);
+    var /= d;
+
+    <span class="cm">/* 정규화 후 scale/shift */</span>
+    <span class="kw">for</span> (<span class="ty">int</span> i=<span class="nm">0</span>; i<d; i++)
+        y[i] = gamma[i] * (x[i]-mean)/sqrtf(var+eps) + beta[i];
+}</pre>
+  </div>
+
+  <div style="margin-top:20px;">
+    <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">Softmax — 확률 분포 변환 (마지막 레이어)</p>
+    <pre><span class="cm">/* 로짓(raw score) → 확률 분포 변환
+ * 수치 안정성 위해 max 빼고 계산 (overflow 방지) */</span>
+<span class="ty">void</span> <span class="fn">softmax</span>(<span class="ty">float</span> *probs, <span class="ty">float</span> *logits, <span class="ty">int</span> vocab_size) {
+    <span class="ty">float</span> max_val = logits[<span class="nm">0</span>];
+    <span class="kw">for</span> (<span class="ty">int</span> i=<span class="nm">1</span>; i<vocab_size; i++)
+        <span class="kw">if</span> (logits[i] > max_val) max_val = logits[i];
+
+    <span class="ty">float</span> sum = <span class="nm">0</span>;
+    <span class="kw">for</span> (<span class="ty">int</span> i=<span class="nm">0</span>; i<vocab_size; i++) {
+        probs[i] = expf(logits[i] - max_val);
+        sum += probs[i];
+    }
+    <span class="kw">for</span> (<span class="ty">int</span> i=<span class="nm">0</span>; i<vocab_size; i++) probs[i] /= sum;
+}
+<span class="cm">/* 출력: probs[i] = 각 토큰이 다음에 올 확률
+ * probs[592] = 0.32  → "가독성"이 다음에 올 확률 32% */</span></pre>
+  </div>
+</section>
+
+<!-- ============================
+  3. 역전파 (Backpropagation)
+============================= -->
+<section id="backprop">
+  <div class="section-title"><span class="num">03</span> 역전파 — 어떻게 학습하는가?</div>
+  <p class="section-sub">Chain Rule(연쇄 법칙)을 이용해 오류를 역방향으로 전파, 각 가중치가 오류에 얼마나 기여했는지 계산합니다.</p>
+
+  <div class="hl">
+    <strong>CS 관점:</strong> Forward Pass = 함수 합성 f₃(f₂(f₁(x))). Backpropagation = 그 합성 함수의 편미분을 Chain Rule로 계산. 자동 미분(Autograd) 시스템이 이를 자동화합니다.
+  </div>
+
+  <div class="grid-2" style="margin-top:20px;">
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">단순한 예: y = W·x, Loss = (y - target)²</p>
+      <div class="formula">
+        dL/dW = dL/dy · dy/dW = 2(y - target) · x<sup>T</sup>
+      </div>
+      <pre><span class="cm">/* Forward */</span>
+<span class="ty">float</span> y = <span class="fn">dot</span>(W, x);           <span class="cm">// y = Wx</span>
+<span class="ty">float</span> loss = (y - target) * (y - target); <span class="cm">// MSE</span>
+
+<span class="cm">/* Backward (역전파) */</span>
+<span class="ty">float</span> dL_dy = <span class="nm">2.0f</span> * (y - target); <span class="cm">// loss의 y에 대한 미분</span>
+<span class="ty">float</span> dL_dW = dL_dy * x;           <span class="cm">// y의 W에 대한 미분 = x</span>
+
+<span class="cm">/* 가중치 업데이트 (Gradient Descent) */</span>
+<span class="ty">float</span> lr = <span class="nm">1e-4f</span>;       <span class="cm">// learning rate</span>
+W -= lr * dL_dW;         <span class="cm">// 오류 방향 반대로 이동</span></pre>
+    </div>
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">다층 레이어의 Chain Rule:</p>
+      <pre><span class="cm">/*
+ * 레이어 3개: y = f3(f2(f1(x)))
+ *
+ * dL/dW1 = dL/dy · dy/df2 · df2/df1 · df1/dW1
+ *          \_____Chain Rule 연쇄_____/
+ *
+ * 각 레이어는 forward 때 입력(x)을 저장해두고
+ * backward 때 gradient 계산에 사용 */</span>
+
+<span class="cm">/* 실제로는 PyTorch의 Autograd가 자동으로 처리
+ * 개발자는 forward만 정의하면 됨 */</span>
+
+<span class="cm">/* Cross-Entropy Loss (LLM의 실제 loss 함수) */</span>
+<span class="ty">float</span> <span class="fn">cross_entropy</span>(<span class="ty">float</span> *probs, <span class="ty">int</span> target) {
+    <span class="cm">/* 정답 토큰의 확률 로그값 (최대화 목표) */</span>
+    <span class="kw">return</span> -logf(probs[target] + <span class="nm">1e-8f</span>);
+}
+<span class="cm">/* "다음 토큰이 'X'일 때 모델이 X를 얼마나
+ * 높게 예측했는가"를 손실로 측정 */</span></pre>
+      <div class="hl yellow" style="margin-top:10px;">
+        <strong>수치 안정성 이슈:</strong> 레이어가 깊어질수록 gradient가 0에 수렴(소실) 또는 폭발합니다. LayerNorm, Residual Connection, 주의 깊은 초기화로 해결합니다.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">Residual Connection (Skip Connection) — Gradient 소실 해결</p>
+    <pre><span class="cm">/* ResNet에서 왔음. 레이어를 건너뛰는 지름길 경로
+ * output = LayerNorm(x + Sublayer(x))
+ *                   ↑
+ *              이게 핵심! x를 그대로 더함 */</span>
+
+<span class="ty">void</span> <span class="fn">transformer_block</span>(<span class="ty">float</span> *x, <span class="ty">TransformerLayer</span> *L, <span class="ty">int</span> d) {
+    <span class="ty">float</span> residual[d];
+
+    <span class="cm">/* 1) Self-Attention + Residual */</span>
+    <span class="fn">memcpy</span>(residual, x, d * <span class="kw">sizeof</span>(<span class="ty">float</span>));  <span class="cm">// x 저장</span>
+    <span class="fn">self_attention</span>(x, x, L);                   <span class="cm">// attention</span>
+    <span class="fn">layer_norm</span>(x, x, L->gamma1, L->beta1, d, <span class="nm">1e-5f</span>);
+    <span class="kw">for</span>(<span class="ty">int</span> i=<span class="nm">0</span>;i<d;i++) x[i] += residual[i]; <span class="cm">// + 원래 x</span>
+
+    <span class="cm">/* 2) FFN + Residual */</span>
+    <span class="fn">memcpy</span>(residual, x, d * <span class="kw">sizeof</span>(<span class="ty">float</span>));
+    <span class="fn">feed_forward</span>(x, x, L);
+    <span class="fn">layer_norm</span>(x, x, L->gamma2, L->beta2, d, <span class="nm">1e-5f</span>);
+    <span class="kw">for</span>(<span class="ty">int</span> i=<span class="nm">0</span>;i<d;i++) x[i] += residual[i];
+}
+<span class="cm">/* Residual 덕분에 gradient가 레이어를 건너뛰어 직접 전파
+ * → 100개 레이어도 안정적으로 학습 가능 */</span></pre>
+  </div>
+</section>
+
+<!-- ============================
+  4. Transformer 구조
+============================= -->
+<section id="transformer">
+  <div class="section-title"><span class="num">04</span> Transformer 전체 구조</div>
+  <p class="section-sub">2017년 "Attention is All You Need" 논문의 핵심. RNN/LSTM을 버리고 Attention만으로 구현.</p>
+
+  <div class="grid-2" style="margin-bottom:20px;">
+    <div class="card">
+      <h4 style="color:var(--accent3); font-family:monospace; margin-bottom:16px;">왜 RNN을 버렸나?</h4>
+      <div class="card" style="margin-bottom:10px; border-color:var(--accent4);">
+        <div style="color:var(--accent4); font-size:0.82rem; font-family:monospace; margin-bottom:4px;">RNN 문제점</div>
+        <ul style="color:var(--muted); font-size:0.85rem; padding-left:16px; line-height:1.9;">
+          <li>순차 처리 → GPU 병렬화 불가</li>
+          <li>Gradient 소실/폭발 (장거리 의존성 취약)</li>
+          <li>"나는 어제 서울에서... <strong style="color:var(--text);">먹었다</strong>" — 먼 앞 단어 기억 어려움</li>
+          <li>시퀀스 길이 O(n) 시간</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:var(--accent2);">
+        <div style="color:var(--accent2); font-size:0.82rem; font-family:monospace; margin-bottom:4px;">Transformer 해결</div>
+        <ul style="color:var(--muted); font-size:0.85rem; padding-left:16px; line-height:1.9;">
+          <li>모든 토큰 동시 처리 → 완전한 병렬화</li>
+          <li>모든 토큰 쌍 직접 연결 (O(1) 거리)</li>
+          <li>Residual로 Gradient 안정</li>
+          <li>다만 메모리 O(n²) — 컨텍스트 길이 제한 이유</li>
+        </ul>
+      </div>
+    </div>
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">GPT 스타일 Transformer (Decoder-only) 전체 흐름:</p>
+<pre style="font-size:0.8rem;"><span class="ty">int</span> tokens[] = {<span class="nm">592</span>, <span class="nm">214</span>, <span class="nm">1034</span>}; <span class="cm">// 입력 3개 토큰</span>
+<span class="ty">int</span> T = <span class="nm">3</span>, d = <span class="nm">4096</span>;
+
+<span class="cm">/* Step 1: Token Embedding + Position Encoding */</span>
+<span class="ty">float</span> x[T][d];
+<span class="kw">for</span>(<span class="ty">int</span> t=<span class="nm">0</span>; t<T; t++) {
+    <span class="fn">add</span>(x[t], token_embed[tokens[t]],
+            pos_embed[t], d);  <span class="cm">// 위치 정보 합산</span>
+}
+
+<span class="cm">/* Step 2: N개 Transformer 블록 통과 */</span>
+<span class="kw">for</span>(<span class="ty">int</span> l=<span class="nm">0</span>; l<N_LAYERS; l++) {
+    <span class="fn">transformer_block</span>(x, &layers[l], T, d);
+}
+
+<span class="cm">/* Step 3: 마지막 토큰 위치의 벡터만 사용 */</span>
+<span class="ty">float</span> logits[vocab_size];
+<span class="fn">linear</span>(logits, lm_head, x[T-<span class="nm">1</span>], NULL, vocab_size, d);
+
+<span class="cm">/* Step 4: Softmax → 다음 토큰 확률 */</span>
+<span class="ty">float</span> probs[vocab_size];
+<span class="fn">softmax</span>(probs, logits, vocab_size);</pre>
+    </div>
+  </div>
+
+  <div class="hl purple">
+    <strong>Positional Encoding이 필요한 이유:</strong> Attention은 순서를 모릅니다. "고양이가 쥐를 잡았다"와 "쥐가 고양이를 잡았다"를 구분하려면 위치 정보를 명시적으로 주입해야 합니다. GPT는 학습 가능한 위치 임베딩, LLaMA는 RoPE(회전 위치 임베딩)를 사용합니다.
+  </div>
+</section>
+
+<!-- ============================
+  5. Attention 메커니즘
+============================= -->
+<section id="attention">
+  <div class="section-title"><span class="num">05</span> Self-Attention — 가장 중요한 연산</div>
+  <p class="section-sub">모든 토큰이 다른 모든 토큰을 "쿼리"하며 관계를 계산합니다. 데이터베이스의 퍼지 쿼리와 유사합니다.</p>
+
+  <div class="hl">
+    <strong>DB 비유:</strong> SQL의 <code>SELECT value FROM table WHERE key SIMILAR TO query</code>와 같습니다. Query(질문), Key(인덱스), Value(실제 값)으로 소프트 검색(확률적 룩업)을 수행합니다.
+  </div>
+
+  <div style="margin-top:20px;">
+    <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">Scaled Dot-Product Attention 수식과 구현:</p>
+    <div class="formula">Attention(Q, K, V) = softmax( Q·Kᵀ / √d_k ) · V</div>
+    <pre><span class="cm">/*
+ * 입력 X: [T × d_model]  (T=시퀀스 길이, d=임베딩 차원)
+ * Q = X · Wq  : "무엇을 찾는가?" (Query)
+ * K = X · Wk  : "내가 무엇인가?" (Key)
+ * V = X · Wv  : "나의 실제 내용" (Value)
+ */</span>
+<span class="ty">void</span> <span class="fn">self_attention</span>(<span class="ty">float</span> *out, <span class="ty">float</span> *x,
+                      <span class="ty">TransformerLayer</span> *L, <span class="ty">int</span> T, <span class="ty">int</span> d) {
+    <span class="ty">int</span> d_k = d / N_HEADS;   <span class="cm">// 헤드당 차원 (4096/32 = 128)</span>
+
+    <span class="cm">/* 1. Q, K, V 행렬 계산 */</span>
+    <span class="ty">float</span> Q[T][d], K[T][d], V[T][d];
+    <span class="fn">matmul</span>(Q, x, L->wq, T, d, d);  <span class="cm">// [T×d] · [d×d] → [T×d]</span>
+    <span class="fn">matmul</span>(K, x, L->wk, T, d, d);
+    <span class="fn">matmul</span>(V, x, L->wv, T, d, d);
+
+    <span class="cm">/* 2. Attention Score 계산: Q · Kᵀ / √d_k */</span>
+    <span class="ty">float</span> scores[T][T];
+    <span class="ty">float</span> scale = <span class="nm">1.0f</span> / sqrtf((<span class="ty">float</span>)d_k);
+    <span class="kw">for</span>(<span class="ty">int</span> i=<span class="nm">0</span>; i<T; i++)
+        <span class="kw">for</span>(<span class="ty">int</span> j=<span class="nm">0</span>; j<T; j++) {
+            scores[i][j] = <span class="fn">dot</span>(Q[i], K[j], d) * scale;
+            <span class="cm">/* Causal Mask: 미래 토큰은 참조 불가 */</span>
+            <span class="kw">if</span> (j > i) scores[i][j] = -INFINITY;
+        }
+
+    <span class="cm">/* 3. Softmax → Attention 가중치 */</span>
+    <span class="ty">float</span> attn_weights[T][T];
+    <span class="kw">for</span>(<span class="ty">int</span> i=<span class="nm">0</span>; i<T; i++)
+        <span class="fn">softmax</span>(attn_weights[i], scores[i], T);
+
+    <span class="cm">/* 4. V의 가중 합산 */</span>
+    <span class="kw">for</span>(<span class="ty">int</span> i=<span class="nm">0</span>; i<T; i++)
+        <span class="kw">for</span>(<span class="ty">int</span> k=<span class="nm">0</span>; k<d; k++) {
+            out[i][k] = <span class="nm">0</span>;
+            <span class="kw">for</span>(<span class="ty">int</span> j=<span class="nm">0</span>; j<T; j++)
+                out[i][k] += attn_weights[i][j] * V[j][k];
+        }
+}</pre>
+  </div>
+
+  <!-- Attention 행렬 시각화 -->
+  <div class="card" style="margin-top:20px;">
+    <h4 style="color:var(--accent2); font-family:monospace; margin-bottom:12px;">Attention Score 행렬 시각화</h4>
+    <p style="color:var(--muted); font-size:0.85rem; margin-bottom:12px;">문장: "그 고양이가 생선을 먹었다" — 각 토큰이 다른 토큰을 얼마나 참조하는가</p>
+    <div style="overflow-x:auto;">
+      <table class="attn-matrix">
+        <thead>
+          <tr>
+            <th></th>
+            <th>그</th><th>고양이가</th><th>생선을</th><th>먹었다</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>그</th>
+            <td style="background:rgba(88,166,255,0.9); color:white;">0.91</td>
+            <td style="background:rgba(88,166,255,0.05); color:var(--muted);">0.04</td>
+            <td style="background:rgba(88,166,255,0.03); color:var(--muted);">0.03</td>
+            <td style="background:rgba(0,0,0,0); color:var(--border);">-∞</td>
+          </tr>
+          <tr>
+            <th>고양이가</th>
+            <td style="background:rgba(88,166,255,0.6); color:white;">0.58</td>
+            <td style="background:rgba(88,166,255,0.35); color:white;">0.34</td>
+            <td style="background:rgba(88,166,255,0.07); color:var(--muted);">0.08</td>
+            <td style="background:rgba(0,0,0,0); color:var(--border);">-∞</td>
+          </tr>
+          <tr>
+            <th>생선을</th>
+            <td style="background:rgba(88,166,255,0.1); color:var(--muted);">0.12</td>
+            <td style="background:rgba(88,166,255,0.55); color:white;">0.53</td>
+            <td style="background:rgba(88,166,255,0.32); color:white;">0.35</td>
+            <td style="background:rgba(0,0,0,0); color:var(--border);">-∞</td>
+          </tr>
+          <tr>
+            <th>먹었다</th>
+            <td style="background:rgba(88,166,255,0.05); color:var(--muted);">0.06</td>
+            <td style="background:rgba(88,166,255,0.7); color:white;">0.68</td>
+            <td style="background:rgba(88,166,255,0.2); color:var(--muted);">0.19</td>
+            <td style="background:rgba(88,166,255,0.08); color:var(--muted);">0.07</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:10px; color:var(--muted); font-size:0.82rem;">
+      → "먹었다"는 "고양이가"(0.68)에 가장 강하게 집중. 주어-동사 관계 포착.<br>
+      → 대각선 위(-∞): Causal Mask. 미래 토큰은 참조 불가 (GPT의 autoregressive 특성).
+    </p>
+  </div>
+
+  <div style="margin-top:20px;">
+    <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">Multi-Head Attention — 여러 "관점"을 병렬로:</p>
+    <pre><span class="cm">/* 헤드 수 h=8이면 d_k = d/h = 512/8 = 64
+ * 각 헤드가 독립적으로 다른 관계 패턴 학습
+ * 헤드1: 문법적 관계 / 헤드2: 의미적 관계 / 헤드3: 지시어 관계 ... */</span>
+
+<span class="ty">void</span> <span class="fn">multi_head_attention</span>(<span class="ty">float</span> *out, <span class="ty">float</span> *x,
+                           <span class="ty">TransformerLayer</span> *L, <span class="ty">int</span> T, <span class="ty">int</span> d) {
+    <span class="ty">float</span> head_outputs[N_HEADS][T][d/N_HEADS];
+
+    <span class="cm">/* 각 헤드 병렬 계산 (실제로 GPU에서 배치 처리) */</span>
+    <span class="kw">for</span>(<span class="ty">int</span> h=<span class="nm">0</span>; h<N_HEADS; h++) {
+        <span class="ty">float</span> *Wq_h = L->wq + h*(d/N_HEADS)*d; <span class="cm">// 헤드별 가중치 슬라이스</span>
+        <span class="fn">single_head_attn</span>(head_outputs[h], x, Wq_h, ...);
+    }
+
+    <span class="cm">/* 헤드 결합: concat → 선형 변환 */</span>
+    <span class="ty">float</span> concat[T][d];
+    <span class="fn">concatenate</span>(concat, head_outputs, N_HEADS);  <span class="cm">// [T × d] 복원</span>
+    <span class="fn">matmul</span>(out, concat, L->wo, T, d, d);          <span class="cm">// 최종 출력 변환</span>
+}</pre>
+  </div>
+</section>
+
+<!-- ============================
+  6. 학습 루프
+============================= -->
+<section id="training-loop">
+  <div class="section-title"><span class="num">06</span> 학습 루프 — 전체 Training Pipeline</div>
+  <p class="section-sub">실제 LLM 학습의 코드 구조. PyTorch로 보면 이렇게 됩니다.</p>
+
+  <div class="grid-2">
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">PyTorch로 표현한 GPT 학습 루프:</p>
+      <pre style="font-size:0.8rem;"><span class="py-kw">import</span> torch
+<span class="py-kw">import</span> torch.nn <span class="py-kw">as</span> nn
+
+<span class="py-cm"># 모델 정의 (실제 GPT는 ~500줄)</span>
+model = GPT(vocab_size=<span class="py-num">50257</span>, d_model=<span class="py-num">768</span>,
+            n_heads=<span class="py-num">12</span>, n_layers=<span class="py-num">12</span>)
+optimizer = torch.optim.AdamW(
+    model.parameters(), lr=<span class="py-num">3e-4</span>,
+    weight_decay=<span class="py-num">0.1</span>)
+
+<span class="py-kw">for</span> step <span class="py-kw">in</span> <span class="py-fn">range</span>(max_steps):
+    <span class="py-cm"># 1. 데이터 배치 로드</span>
+    tokens = <span class="py-fn">next</span>(data_loader)  <span class="py-cm"># [B, T]</span>
+    inputs  = tokens[:, :-<span class="py-num">1</span>]   <span class="py-cm"># [B, T-1]</span>
+    targets = tokens[:, <span class="py-num">1</span>:]    <span class="py-cm"># [B, T-1] 다음 토큰</span>
+
+    <span class="py-cm"># 2. Forward Pass</span>
+    logits = model(inputs)      <span class="py-cm"># [B, T-1, vocab]</span>
+    loss = nn.<span class="py-fn">cross_entropy</span>(
+        logits.<span class="py-fn">view</span>(-<span class="py-num">1</span>, vocab_size),
+        targets.<span class="py-fn">view</span>(-<span class="py-num">1</span>))
+
+    <span class="py-cm"># 3. Backward Pass (autograd가 자동 계산)</span>
+    optimizer.<span class="py-fn">zero_grad</span>()
+    loss.<span class="py-fn">backward</span>()           <span class="py-cm"># 역전파</span>
+
+    <span class="py-cm"># 4. Gradient Clipping (폭발 방지)</span>
+    nn.utils.<span class="py-fn">clip_grad_norm_</span>(
+        model.parameters(), max_norm=<span class="py-num">1.0</span>)
+
+    <span class="py-cm"># 5. 파라미터 업데이트</span>
+    optimizer.<span class="py-fn">step</span>()</pre>
+    </div>
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">Adam Optimizer — SGD보다 왜 잘 될까?</p>
+      <pre style="font-size:0.8rem;"><span class="py-cm">"""
+SGD:  W = W - lr * gradient
+Adam: gradient를 적응적으로 조정
+
+Adam은 각 파라미터마다
+- m: gradient의 지수이동평균 (모멘텀)
+- v: gradient² 의 이동평균 (분산)
+를 별도 추적
+
+업데이트: W -= lr * m / (√v + ε)
+→ 많이 변한 파라미터는 lr 감소
+→ 거의 안 변한 파라미터는 lr 증가
+→ 학습이 훨씬 안정적
+"""</span>
+
+<span class="py-cm"># Learning Rate Schedule (Cosine Decay)</span>
+<span class="py-kw">def</span> <span class="py-fn">get_lr</span>(step):
+    <span class="py-cm"># Warmup: 처음엔 lr 천천히 증가</span>
+    <span class="py-kw">if</span> step < warmup_steps:
+        <span class="py-kw">return</span> max_lr * step / warmup_steps
+    <span class="py-cm"># Cosine decay: 이후 서서히 감소</span>
+    progress = (step-warmup_steps)/(max_steps-warmup_steps)
+    <span class="py-kw">return</span> min_lr + <span class="py-num">0.5</span>*(max_lr-min_lr)*(
+        <span class="py-num">1</span> + math.<span class="py-fn">cos</span>(math.pi * progress))</pre>
+      <div class="hl green" style="margin-top:10px; font-size:0.85rem;">
+        <strong>Autograd 마법:</strong> PyTorch는 forward pass를 기록하며 계산 그래프(DAG)를 구성합니다. <code>loss.backward()</code> 한 줄로 수백 개 레이어의 gradient를 자동 계산합니다. C로 직접 짜면 수만 줄이 필요합니다.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">학습 단계 구분:</p>
+    <div class="card">
+      <table>
+        <thead><tr><th>단계</th><th>방법</th><th>데이터</th><th>목적</th><th>비용</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Pre-training</strong></td><td>Next Token Prediction</td><td>수조 토큰 (웹, 책)</td><td>언어·지식 습득</td><td style="color:var(--accent4);">~$100M</td></tr>
+          <tr><td><strong>SFT</strong></td><td>지도 학습 (Fine-tuning)</td><td>수만 개 대화 예시</td><td>명령 따르기</td><td>~$1M</td></tr>
+          <tr><td><strong>RLHF</strong></td><td>PPO 강화학습</td><td>인간 선호도 데이터</td><td>유용·안전 응답</td><td>~수백만$</td></tr>
+          <tr><td><strong>Fine-tuning</strong></td><td>LoRA 등</td><td>도메인 특화 데이터</td><td>특정 용도 최적화</td><td>~$100</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================
+  7. 추론 (Inference)
+============================= -->
+<section id="inference">
+  <div class="section-title"><span class="num">07</span> 추론(Inference) — 배포 환경에서의 생성</div>
+  <p class="section-sub">학습이 끝난 모델을 실제 서비스할 때. KV Cache, 양자화, 배치 처리가 핵심입니다.</p>
+
+  <div class="grid-2">
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">Autoregressive 생성 루프:</p>
+      <pre style="font-size:0.82rem;"><span class="cm">/* 토큰을 하나씩 생성하는 루프 */</span>
+<span class="ty">int</span> tokens[MAX_LEN] = {<span class="nm">592</span>}; <span class="cm">// 초기 프롬프트</span>
+<span class="ty">int</span> n_tokens = <span class="nm">1</span>;
+
+<span class="kw">while</span>(n_tokens < MAX_LEN) {
+    <span class="cm">/* Forward Pass: 현재까지의 전체 시퀀스 */</span>
+    <span class="ty">float</span> probs[vocab_size];
+    <span class="fn">forward</span>(probs, tokens, n_tokens, model);
+
+    <span class="cm">/* 다음 토큰 샘플링 */</span>
+    <span class="ty">int</span> next = <span class="fn">sample</span>(probs, temperature);
+
+    <span class="cm">/* EOS(문장 끝) 토큰이면 종료 */</span>
+    <span class="kw">if</span> (next == EOS_TOKEN) <span class="kw">break</span>;
+
+    tokens[n_tokens++] = next;
+}
+<span class="cm">/* 매 토큰마다 전체 시퀀스 재계산 → O(T²) 문제
+ * → KV Cache로 해결! */</span></pre>
+    </div>
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">KV Cache — 재계산 방지 최적화:</p>
+      <pre style="font-size:0.82rem;"><span class="cm">/* 문제: 토큰 추가할 때마다
+ * K, V를 전체 재계산하는 낭비
+ *
+ * 해결: 이전 K, V를 캐시에 저장
+ * 새 토큰의 K, V만 계산해서 append */</span>
+
+<span class="ty">float</span> K_cache[MAX_LEN][d];  <span class="cm">// 누적 저장</span>
+<span class="ty">float</span> V_cache[MAX_LEN][d];
+
+<span class="kw">for</span>(<span class="ty">int</span> t=<span class="nm">0</span>; t<MAX_LEN; t++) {
+    <span class="cm">/* 새 토큰의 K, V만 계산 */</span>
+    K_cache[t] = <span class="fn">compute_K</span>(x[t], Wk);
+    V_cache[t] = <span class="fn">compute_V</span>(x[t], Wv);
+
+    <span class="cm">/* Attention은 캐시 전체와 계산 */</span>
+    scores = Q[t] · K_cache[<span class="nm">0</span>..t]ᵀ / √d_k;
+    out[t] = softmax(scores) · V_cache[<span class="nm">0</span>..t];
+}
+<span class="cm">/* O(T²) → O(T): 매우 큰 속도 향상
+ * 대신 메모리 T × d × 2 × N_LAYERS 필요 */</span></pre>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">양자화(Quantization) — 메모리 절약:</p>
+    <pre><span class="cm">/* float32 → int8/int4로 압축
+ * 정밀도 소폭 희생, 메모리·속도 대폭 개선 */</span>
+
+<span class="cm">/* float32: 4 bytes per weight */</span>
+<span class="ty">float32</span>  W_fp32 = <span class="nm">0.3847f</span>;  <span class="cm">// 0011 1110 1100 0101 ... (32bit)</span>
+
+<span class="cm">/* int8 양자화: 8 bytes → 75% 메모리 절약 */</span>
+<span class="ty">float</span>   scale  = max(abs(W_fp32)) / <span class="nm">127.0f</span>;
+<span class="ty">int8_t</span>  W_int8 = (<span class="ty">int8_t</span>)(W_fp32 / scale); <span class="cm">// 49</span>
+<span class="ty">float</span>   W_deq  = W_int8 * scale;            <span class="cm">// ≈ 0.3843 (근사값)</span>
+
+<span class="cm">/*
+ * 실용 수치:
+ * 7B 모델 fp32:  28GB  → A100 필요
+ * 7B 모델 int8:  7GB   → RTX 3080 가능
+ * 7B 모델 int4:  3.5GB → RTX 3060 가능
+ * → 로컬 LLM 실행의 핵심 기술 (llama.cpp)
+ */</span></pre>
+  </div>
+</section>
+
+<!-- ============================
+  8. GPU / 메모리
+============================= -->
+<section id="gpu">
+  <div class="section-title"><span class="num">08</span> GPU와 병렬처리 — 왜 GPU인가?</div>
+  <p class="section-sub">LLM의 핵심 연산인 행렬 곱셈은 GPU의 대규모 병렬 아키텍처에 완벽하게 맞습니다.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h4 style="color:var(--accent3); font-family:monospace; margin-bottom:12px;">CPU vs GPU</h4>
+      <table>
+        <thead><tr><th></th><th>CPU (i9-13900K)</th><th>GPU (A100)</th></tr></thead>
+        <tbody>
+          <tr><td>코어 수</td><td>24</td><td style="color:var(--accent2);">6,912 CUDA 코어</td></tr>
+          <tr><td>클럭</td><td>5.8 GHz</td><td>1.41 GHz</td></tr>
+          <tr><td>FP32 성능</td><td>~1 TFLOPS</td><td style="color:var(--accent2);">19.5 TFLOPS</td></tr>
+          <tr><td>메모리 대역폭</td><td>~90 GB/s</td><td style="color:var(--accent2);">2,039 GB/s</td></tr>
+          <tr><td>적합한 작업</td><td>순차, 분기 많은 로직</td><td>대규모 병렬 수치 계산</td></tr>
+        </tbody>
+      </table>
+      <div class="hl green" style="margin-top:12px; font-size:0.85rem;">
+        행렬 곱셈은 수백만 개의 독립적인 곱셈·덧셈. GPU는 이걸 수천 코어에서 동시에 실행합니다.
+      </div>
+    </div>
+    <div>
+      <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">Flash Attention — 메모리 병목 해결:</p>
+      <pre style="font-size:0.82rem;"><span class="cm">/*
+ * 문제: Attention Score 행렬 [T × T]을
+ * GPU HBM(고대역폭 메모리)에 쓰고 읽는 게 병목
+ * T=4096이면 4096² × 4byte = 67MB!
+ *
+ * Flash Attention (2022):
+ * - SRAM(on-chip, 빠름)에 타일 단위로 처리
+ * - T×T 행렬을 HBM에 저장하지 않음
+ * - 메모리 O(T²) → O(T) 로 감소
+ * - 속도 2~4배 향상
+ *
+ * 핵심 아이디어: 수치적으로 동일하지만
+ * 메모리 접근 패턴을 타일화
+ */</span>
+
+<span class="cm">// PyTorch에서는 자동 적용:</span>
+<span class="py-kw">with</span> torch.backends.cuda.<span class="py-fn">sdp_kernel</span>(
+        enable_flash=<span class="py-kw">True</span>):
+    attn_out = F.<span class="py-fn">scaled_dot_product_attention</span>(Q, K, V)</pre>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <div class="chart-wrap">
+      <h4 style="color:var(--accent2); font-family:monospace; margin-bottom:16px; text-align:center;">모델 크기별 필요 GPU VRAM (추론 기준)</h4>
+      <canvas id="vramChart" height="100"></canvas>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <p style="color:var(--muted); font-size:0.88rem; margin-bottom:8px;">분산 학습 — 수천 GPU를 어떻게 쓰나:</p>
+    <div class="card">
+      <table>
+        <thead><tr><th>방식</th><th>분할 대상</th><th>통신</th><th>용도</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Data Parallel</strong></td><td>배치(데이터)를 GPU별 분할</td><td>gradient allreduce</td><td>가장 일반적</td></tr>
+          <tr><td><strong>Tensor Parallel</strong></td><td>행렬을 열/행으로 분할</td><td>빈번한 allgather</td><td>초대형 모델 레이어</td></tr>
+          <tr><td><strong>Pipeline Parallel</strong></td><td>레이어를 GPU별 분할</td><td>activation 전달</td><td>레이어 수 많을 때</td></tr>
+          <tr><td><strong>ZeRO (DeepSpeed)</strong></td><td>파라미터·옵티마이저 상태</td><td>on-demand allgather</td><td>메모리 효율 극대화</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================
+  9. 심화: 현대 LLM 개선 기술
+============================= -->
+<section>
+  <div class="section-title"><span class="num">09</span> 현대 LLM의 개선 기술</div>
+  <p class="section-sub">기본 Transformer에서 현대 LLM(LLaMA, GPT-4)으로 발전하며 추가된 주요 기술들.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h4 style="color:var(--accent); font-family:monospace; margin-bottom:10px;">RoPE (Rotary Position Embedding)</h4>
+      <p style="color:var(--muted); font-size:0.85rem; margin-bottom:10px;">절대 위치 대신 상대 위치를 Q·K 계산에 회전 행렬로 직접 인코딩.</p>
+      <pre style="font-size:0.78rem;"><span class="cm">/* 위치 t의 벡터를 회전 행렬로 변환
+ * cos(t·θ) -sin(t·θ)   [q₂ₖ  ]
+ * sin(t·θ)  cos(t·θ) × [q₂ₖ₊₁]
+ * → Q·Kᵀ 내적이 상대 위치만 반영
+ * → 긴 컨텍스트 외삽 가능 */</span></pre>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent2); font-family:monospace; margin-bottom:10px;">GQA (Grouped Query Attention)</h4>
+      <p style="color:var(--muted); font-size:0.85rem; margin-bottom:10px;">Multi-Head의 KV 헤드 수를 줄여 KV Cache 메모리 절약.</p>
+      <pre style="font-size:0.78rem;"><span class="cm">/* MHA:  Q헤드=32, K헤드=32, V헤드=32
+ * MQA:  Q헤드=32, K헤드=1,  V헤드=1
+ * GQA:  Q헤드=32, K헤드=8,  V헤드=8  ← LLaMA3
+ *
+ * KV Cache 감소: 32배 → 4배 절약
+ * 품질 손실 최소화 */</span></pre>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent3); font-family:monospace; margin-bottom:10px;">SwiGLU (FFN 활성화)</h4>
+      <p style="color:var(--muted); font-size:0.85rem; margin-bottom:10px;">FFN에서 GELU 대신 게이팅 메커니즘 추가. LLaMA에 사용.</p>
+      <pre style="font-size:0.78rem;"><span class="cm">/* 일반 FFN: y = GELU(xW₁)W₂
+ * SwiGLU:   y = (xW₁ ⊗ SiLU(xW₃))W₂
+ *               ↑ 값     ↑ 게이트
+ * 게이트가 정보 흐름 제어
+ * 동일 파라미터 수 대비 성능 향상 */</span></pre>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--accent5); font-family:monospace; margin-bottom:10px;">MoE (Mixture of Experts)</h4>
+      <p style="color:var(--muted); font-size:0.85rem; margin-bottom:10px;">FFN을 N개 전문가로 분리, 입력마다 Top-K 전문가만 활성화.</p>
+      <pre style="font-size:0.78rem;"><span class="cm">/* DeepSeek-V3: 전문가 256개, Top-8 선택
+ * 활성 파라미터: 21B (총 671B 중)
+ * → 연산량 = 21B 모델, 표현력 = 671B 모델
+ *
+ * Router: 어떤 전문가 선택할지 결정
+ * 가중치 = softmax(x · W_router)[top-k] */</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ============================
+  10. 요약
+============================= -->
+<section>
+  <div class="section-title"><span class="num">10</span> CS 관점 핵심 요약</div>
+  <div class="card">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:20px;">
+      <div>
+        <div style="color:var(--accent3); font-family:monospace; font-size:0.82rem; margin-bottom:8px;">// 자료구조</div>
+        <ul style="color:var(--muted); font-size:0.87rem; line-height:2; padding-left:16px;">
+          <li>파라미터 = <strong style="color:var(--text);">float32 배열</strong></li>
+          <li>토큰 = <strong style="color:var(--text);">정수 인덱스</strong> → 벡터 룩업</li>
+          <li>모델 파일 = <strong style="color:var(--text);">직렬화된 배열들</strong></li>
+        </ul>
+      </div>
+      <div>
+        <div style="color:var(--accent); font-family:monospace; font-size:0.82rem; margin-bottom:8px;">// 알고리즘</div>
+        <ul style="color:var(--muted); font-size:0.87rem; line-height:2; padding-left:16px;">
+          <li>추론 = <strong style="color:var(--text);">행렬 곱 N번 반복</strong></li>
+          <li>학습 = <strong style="color:var(--text);">Chain Rule + 경사하강법</strong></li>
+          <li>Attention = <strong style="color:var(--text);">소프트 해시맵 조회</strong></li>
+        </ul>
+      </div>
+      <div>
+        <div style="color:var(--accent2); font-family:monospace; font-size:0.82rem; margin-bottom:8px;">// 시스템</div>
+        <ul style="color:var(--muted); font-size:0.87rem; line-height:2; padding-left:16px;">
+          <li>GPU = <strong style="color:var(--text);">SIMD 극한 병렬화</strong></li>
+          <li>KV Cache = <strong style="color:var(--text);">동적 프로그래밍 메모이제이션</strong></li>
+          <li>양자화 = <strong style="color:var(--text);">int8/int4 압축 표현</strong></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="hl" style="margin-top:20px;">
+      <strong>더 깊이 공부하고 싶다면:</strong><br>
+      <span style="font-size:0.88rem; color:var(--muted);">
+        📘 <strong style="color:var(--text);">Andrej Karpathy의 nanoGPT</strong> — GPT를 ~300줄 Python으로 구현한 레포. C를 아는 개발자라면 이틀이면 이해 가능.<br>
+        📘 <strong style="color:var(--text);">llama.cpp</strong> — 순수 C/C++로 LLM 추론 구현. 메모리 관리, 양자화, BLAS 최적화 학습에 최고.<br>
+        📘 <strong style="color:var(--text);">Attention is All You Need (2017)</strong> — 원 논문. 8페이지로 Transformer 전체 설명.<br>
+        📘 <strong style="color:var(--text);">The Annotated Transformer</strong> — 논문을 코드로 한 줄씩 구현한 블로그.
+      </span>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer>// LLM for Engineers | Built for CS graduates who know C | 2026</footer>
+
+<script>
+// VRAM Chart
+const vramCtx = document.getElementById('vramChart').getContext('2d');
+new Chart(vramCtx, {
+  type: 'bar',
+  data: {
+    labels: ['1B (FP32)', '7B (FP32)', '7B (INT8)', '7B (INT4)', '13B (INT4)', '70B (INT8)', '70B (INT4)', '405B (INT4)'],
+    datasets: [
+      {
+        label: '필요 VRAM (GB)',
+        data: [4, 28, 8, 4, 7, 70, 40, 200],
+        backgroundColor: [
+          'rgba(63,185,80,0.7)',
+          'rgba(247,129,102,0.7)',
+          'rgba(63,185,80,0.7)',
+          'rgba(63,185,80,0.7)',
+          'rgba(210,153,34,0.7)',
+          'rgba(247,129,102,0.7)',
+          'rgba(210,153,34,0.7)',
+          'rgba(247,129,102,0.7)',
+        ],
+        borderRadius: 5,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: { label: ctx => ` ${ctx.parsed.y} GB VRAM` }
+      },
+      annotation: {}
+    },
+    scales: {
+      x: { ticks: { color: '#8b949e', font: { size: 11, family: 'monospace' } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      y: {
+        ticks: { color: '#8b949e', font: { size: 11, family: 'monospace' } },
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        title: { display: true, text: 'VRAM (GB)', color: '#8b949e', font: { size: 11 } }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>

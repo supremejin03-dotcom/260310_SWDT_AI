@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LLM으로 공부하는 법 · 비기너 가이드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+  --bg:#090d1a;--bg2:#111827;--bg3:#1a2233;--border:#1e2d45;
+  --purple:#a78bfa;--blue:#38bdf8;--green:#34d399;--orange:#fb923c;
+  --pink:#f472b6;--yellow:#fbbf24;--text:#e2e8f0;--muted:#64748b;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);line-height:1.75;}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:99;background:rgba(9,13,26,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;}
+nav .logo{font-weight:800;font-size:.95rem;background:linear-gradient(135deg,var(--purple),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+nav a{color:var(--muted);text-decoration:none;font-size:.8rem;transition:color .2s;}
+nav a:hover{color:var(--blue);}
+
+/* HERO */
+.hero{text-align:center;padding:72px 24px 56px;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(56,189,248,.1) 0%,transparent 70%);}
+.tag{display:inline-block;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:var(--blue);padding:4px 14px;border-radius:20px;font-size:.78rem;font-weight:700;margin-bottom:18px;}
+.hero h1{font-size:clamp(1.7rem,5vw,2.8rem);font-weight:800;line-height:1.2;margin-bottom:14px;}
+.hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--blue),var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero p{color:var(--muted);font-size:.95rem;max-width:560px;margin:0 auto;}
+
+/* SECTION */
+section{padding:56px 24px;max-width:1060px;margin:0 auto;}
+.sec-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);color:var(--purple);padding:4px 14px;border-radius:20px;font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;}
+h2.title{font-size:clamp(1.3rem,3vw,1.9rem);font-weight:800;margin-bottom:6px;}
+.sub{color:var(--muted);font-size:.9rem;margin-bottom:36px;}
+hr.div{border:none;border-top:1px solid var(--border);}
+
+/* CARD */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:22px;}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
+
+/* VS BLOCK */
+.vs-wrap{display:grid;grid-template-columns:1fr 48px 1fr;align-items:center;gap:12px;margin:28px 0;}
+.vs-side{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;}
+.vs-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+.vs-center{text-align:center;font-size:1.3rem;font-weight:800;color:var(--muted);}
+.vs-side ul{list-style:none;font-size:.84rem;display:flex;flex-direction:column;gap:7px;}
+
+/* STEP CARDS (horizontal scroll on mobile) */
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:0;position:relative;margin:32px 0;}
+.steps::before{content:'';position:absolute;top:28px;left:8%;right:8%;height:2px;background:linear-gradient(90deg,var(--blue),var(--purple),var(--pink));z-index:0;}
+.step-item{display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;z-index:1;}
+.step-num{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;border:2px solid;margin-bottom:12px;}
+.step-name{font-size:.82rem;font-weight:700;margin-bottom:4px;}
+.step-desc{font-size:.73rem;color:var(--muted);line-height:1.4;}
+
+/* PROMPT BOX */
+.prompt-box{background:#0d1117;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:16px 0;}
+.prompt-header{background:#161b22;padding:8px 16px;font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:8px;}
+.prompt-header .dot{width:10px;height:10px;border-radius:50%;}
+.prompt-body{padding:16px;font-size:.84rem;line-height:1.7;}
+.prompt-body .user{color:var(--blue);}
+.prompt-body .ai{color:var(--green);}
+.prompt-body .comment{color:var(--muted);font-style:italic;font-size:.78rem;}
+
+/* BADGE */
+.b{display:inline-block;padding:2px 9px;border-radius:16px;font-size:.72rem;font-weight:700;}
+.bG{background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.3);}
+.bB{background:rgba(56,189,248,.12);color:var(--blue);border:1px solid rgba(56,189,248,.3);}
+.bP{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.3);}
+.bO{background:rgba(251,146,60,.12);color:var(--orange);border:1px solid rgba(251,146,60,.3);}
+.bR{background:rgba(244,114,182,.12);color:var(--pink);border:1px solid rgba(244,114,182,.3);}
+.bY{background:rgba(251,191,36,.12);color:var(--yellow);border:1px solid rgba(251,191,36,.3);}
+
+/* CHART */
+.cw{position:relative;height:260px;}
+.cw-sm{position:relative;height:200px;}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:.85rem;}
+thead th{background:var(--bg3);color:var(--purple);padding:11px 15px;text-align:left;font-weight:700;}
+tbody tr:nth-child(even){background:rgba(255,255,255,.02);}
+tbody tr:hover{background:rgba(56,189,248,.05);}
+tbody td{padding:11px 15px;border-bottom:1px solid var(--border);vertical-align:middle;}
+
+/* WARN / TIP */
+.warn{background:rgba(251,146,60,.08);border-left:3px solid var(--orange);border-radius:0 10px 10px 0;padding:16px 20px;margin:16px 0;font-size:.87rem;}
+.tip-box{background:rgba(52,211,153,.07);border-left:3px solid var(--green);border-radius:0 10px 10px 0;padding:16px 20px;margin:16px 0;font-size:.87rem;}
+.warn strong,.tip-box strong{display:block;margin-bottom:4px;font-size:.9rem;}
+
+/* ROADMAP */
+.rm{display:flex;flex-direction:column;gap:0;}
+.rm-row{display:grid;grid-template-columns:56px 1fr;gap:20px;position:relative;}
+.rm-row:not(:last-child)::after{content:'';position:absolute;left:27px;top:52px;bottom:-12px;width:2px;background:var(--border);}
+.rm-num{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:800;border:2px solid;flex-shrink:0;z-index:1;position:relative;}
+.rm-body{padding-bottom:32px;}
+.rm-tag{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
+.rm-body h3{font-size:1rem;font-weight:700;margin-bottom:10px;}
+.rm-list{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.rm-list li{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:.84rem;display:flex;gap:10px;align-items:flex-start;}
+.rm-list li .ic{flex-shrink:0;}
+
+/* CALLOUT */
+.callout{background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(167,139,250,.06));border:1px solid rgba(56,189,248,.2);border-radius:16px;padding:26px;margin:28px 0;display:flex;gap:16px;align-items:flex-start;}
+.callout .ic{font-size:1.7rem;flex-shrink:0;}
+.callout h3{font-size:.95rem;font-weight:700;color:var(--blue);margin-bottom:6px;}
+.callout p{font-size:.85rem;color:var(--muted);line-height:1.65;}
+
+/* FINAL */
+.final{text-align:center;padding:52px 28px;background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(167,139,250,.06),rgba(52,211,153,.05));border:1px solid rgba(167,139,250,.2);border-radius:24px;margin-top:48px;}
+
+footer{text-align:center;padding:36px 24px;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border);}
+
+@media(max-width:640px){
+  .steps{grid-template-columns:1fr;gap:16px;}
+  .steps::before{display:none;}
+  .vs-wrap{grid-template-columns:1fr;}
+  .vs-center{transform:rotate(90deg);}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">🧠 LLM 학습 가이드</span>
+  <a href="#what">LLM이란?</a>
+  <a href="#why">왜 써야 하나</a>
+  <a href="#how">학습 방법</a>
+  <a href="#prompts">프롬프트 예시</a>
+  <a href="#pitfalls">주의사항</a>
+  <a href="#roadmap">학습 로드맵</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="tag">🧠 완전 비기너용 · LLM 학습 가이드</div>
+  <h1>AI가 <em>과외 선생님</em>이 되는 시대</h1>
+  <p style="margin-top:10px">LLM(대형 언어 모델)을 어떻게 하면 공부에 제대로 활용할 수 있는지,<br>처음 접하는 분들을 위해 쉽고 실용적으로 정리했습니다.</p>
+</div>
+
+<!-- ===== SECTION 1 ===== -->
+<section id="what">
+  <div class="sec-badge">📖 PART 1</div>
+  <h2 class="title">LLM이 뭔가요?</h2>
+  <p class="sub">ChatGPT, Claude, Gemini… 다 같은 계열입니다. 한번에 이해해봅시다.</p>
+
+  <div class="grid2" style="margin-bottom:28px;">
+    <div class="card">
+      <div style="font-size:1.6rem;margin-bottom:10px">🤖</div>
+      <h3 style="font-size:1rem;margin-bottom:8px">LLM = Large Language Model</h3>
+      <p style="font-size:.85rem;color:var(--muted)">
+        인터넷의 방대한 텍스트(책, 논문, 코드, 웹페이지 등)를 학습해서 <strong style="color:var(--text)">사람처럼 글을 읽고 쓰고 대화할 수 있게 만든 AI 모델</strong>입니다.<br><br>
+        쉽게 말하면 — 세상의 거의 모든 지식을 읽은 뒤 "이 질문엔 이런 답이 적절하다"를 확률적으로 추론하는 엔진입니다.
+      </p>
+    </div>
+    <div class="card">
+      <div style="font-size:1.6rem;margin-bottom:10px">🏛️</div>
+      <h3 style="font-size:1rem;margin-bottom:12px">주요 LLM 한눈에 보기</h3>
+      <table style="font-size:.8rem;">
+        <thead><tr><th>이름</th><th>만든 곳</th><th>특징</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Claude</strong></td><td>Anthropic</td><td><span class="b bP">코딩·글쓰기 최강</span></td></tr>
+          <tr><td><strong>ChatGPT</strong></td><td>OpenAI</td><td><span class="b bG">가장 유명·범용</span></td></tr>
+          <tr><td><strong>Gemini</strong></td><td>Google</td><td><span class="b bB">검색·대용량</span></td></tr>
+          <tr><td><strong>Grok</strong></td><td>xAI</td><td><span class="b bY">실시간 웹 검색</span></td></tr>
+          <tr><td><strong>DeepSeek</strong></td><td>중국</td><td><span class="b bO">초저비용 오픈소스</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 비유 -->
+  <div class="vs-wrap">
+    <div class="vs-side" style="border-color:rgba(251,146,60,.3)">
+      <div class="vs-label" style="color:var(--orange)">📚 기존 학습 방식</div>
+      <ul>
+        <li>🔍 구글에서 검색 → 여러 글 읽기</li>
+        <li>📖 책 사서 처음부터 읽기</li>
+        <li>🙋 모르면 커뮤니티에 질문 → 답 기다리기</li>
+        <li>🎬 유튜브 영상 여러 편 탐색</li>
+        <li>⏳ 내 수준에 맞게 설명해주는 사람 찾기</li>
+      </ul>
+    </div>
+    <div class="vs-center">VS</div>
+    <div class="vs-side" style="border-color:rgba(56,189,248,.3)">
+      <div class="vs-label" style="color:var(--blue)">🤖 LLM 활용 학습</div>
+      <ul>
+        <li>💬 모르는 것을 그냥 물어보면 즉시 답</li>
+        <li>🎯 내 수준에 딱 맞게 설명 요청 가능</li>
+        <li>🔁 이해 안 되면 다시 설명, 예시 요청</li>
+        <li>🧪 배운 내용 퀴즈 만들어 달라고 요청</li>
+        <li>⚡ 24시간, 무한 반복, 눈치 없음</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr class="div"/>
+
+<!-- ===== SECTION 2 ===== -->
+<section id="why">
+  <div class="sec-badge">⚡ PART 2</div>
+  <h2 class="title">왜 LLM으로 공부해야 하나요?</h2>
+  <p class="sub">기존 학습 대비 얼마나 빠른지, 데이터로 봅니다.</p>
+
+  <div class="grid2" style="margin-bottom:28px;">
+    <div class="card">
+      <h3 style="font-size:.9rem;color:var(--muted);margin-bottom:14px">📈 학습 속도 비교 (상대값)</h3>
+      <div class="cw"><canvas id="speedChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:.9rem;color:var(--muted);margin-bottom:14px">🎯 LLM이 특히 잘하는 학습 영역</h3>
+      <div class="cw"><canvas id="domainChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="card" style="border-color:rgba(56,189,248,.3)">
+      <div style="font-size:1.5rem;margin-bottom:8px">⏱️</div>
+      <h4 style="font-size:.9rem;margin-bottom:6px">즉각적인 피드백</h4>
+      <p style="font-size:.82rem;color:var(--muted)">답 기다릴 필요 없음. 코드를 작성하면 바로 리뷰, 오류가 나면 바로 해설.</p>
+    </div>
+    <div class="card" style="border-color:rgba(167,139,250,.3)">
+      <div style="font-size:1.5rem;margin-bottom:8px">🎯</div>
+      <h4 style="font-size:.9rem;margin-bottom:6px">맞춤형 설명</h4>
+      <p style="font-size:.82rem;color:var(--muted)">"중학생에게 설명하듯", "비유로", "코드 예시와 함께" — 내가 원하는 방식으로.</p>
+    </div>
+    <div class="card" style="border-color:rgba(52,211,153,.3)">
+      <div style="font-size:1.5rem;margin-bottom:8px">♾️</div>
+      <h4 style="font-size:.9rem;margin-bottom:6px">무한 반복</h4>
+      <p style="font-size:.82rem;color:var(--muted)">같은 질문을 100번 해도 됩니다. 눈치 없고 지치지 않는 과외 선생님.</p>
+    </div>
+    <div class="card" style="border-color:rgba(251,191,36,.3)">
+      <div style="font-size:1.5rem;margin-bottom:8px">🧩</div>
+      <h4 style="font-size:.9rem;margin-bottom:6px">연결 학습</h4>
+      <p style="font-size:.82rem;color:var(--muted)">"이 개념이 실제로 어디서 쓰이나요?" — 추상 지식을 실전과 바로 연결.</p>
+    </div>
+    <div class="card" style="border-color:rgba(244,114,182,.3)">
+      <div style="font-size:1.5rem;margin-bottom:8px">📝</div>
+      <h4 style="font-size:.9rem;margin-bottom:6px">문서·요약 생성</h4>
+      <p style="font-size:.82rem;color:var(--muted)">긴 문서, 강의 내용을 붙여 넣으면 핵심만 요약·정리해 줌.</p>
+    </div>
+    <div class="card" style="border-color:rgba(251,146,60,.3)">
+      <div style="font-size:1.5rem;margin-bottom:8px">🧠</div>
+      <h4 style="font-size:.9rem;margin-bottom:6px">소크라테스식 대화</h4>
+      <p style="font-size:.82rem;color:var(--muted)">"정답 말고 힌트만 줘" — 직접 생각하게 유도하는 대화형 학습 가능.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="div"/>
+
+<!-- ===== SECTION 3 ===== -->
+<section id="how">
+  <div class="sec-badge">🛠️ PART 3</div>
+  <h2 class="title">구체적으로 어떻게 활용하나요?</h2>
+  <p class="sub">상황별로 LLM을 100% 활용하는 5가지 학습 모드입니다.</p>
+
+  <!-- 5 스텝 -->
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-num" style="background:rgba(56,189,248,.15);color:var(--blue);border-color:var(--blue)">💬</div>
+      <div class="step-name">모드 1<br>질의응답</div>
+      <div class="step-desc">모르는 개념<br>즉시 질문</div>
+    </div>
+    <div class="step-item">
+      <div class="step-num" style="background:rgba(167,139,250,.15);color:var(--purple);border-color:var(--purple)">📋</div>
+      <div class="step-name">모드 2<br>커리큘럼</div>
+      <div class="step-desc">학습 계획<br>설계 요청</div>
+    </div>
+    <div class="step-item">
+      <div class="step-num" style="background:rgba(52,211,153,.15);color:var(--green);border-color:var(--green)">🧪</div>
+      <div class="step-name">모드 3<br>퀴즈·테스트</div>
+      <div class="step-desc">학습 내용<br>검증</div>
+    </div>
+    <div class="step-item">
+      <div class="step-num" style="background:rgba(251,191,36,.15);color:var(--yellow);border-color:var(--yellow)">🔍</div>
+      <div class="step-name">모드 4<br>코드 리뷰</div>
+      <div class="step-desc">내 코드<br>피드백</div>
+    </div>
+    <div class="step-item">
+      <div class="step-num" style="background:rgba(244,114,182,.15);color:var(--pink);border-color:var(--pink)">🗺️</div>
+      <div class="step-name">모드 5<br>심화 탐구</div>
+      <div class="step-desc">개념 확장<br>연결</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- 모드 1 -->
+    <div class="card">
+      <div style="color:var(--blue);font-weight:700;font-size:.85rem;margin-bottom:12px">💬 모드 1 · 질의응답형</div>
+      <div class="prompt-box">
+        <div class="prompt-header"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span> 나의 질문</div>
+        <div class="prompt-body">
+          <span class="user">나:</span> 재귀함수가 뭔지 모르겠어. 초등학생도 이해할 수 있게 비유로 설명해줘.<br><br>
+          <span class="ai">AI:</span> 거울 두 개를 마주보게 놓으면 그 안에서 무한히 반복되는 이미지 보신 적 있죠? 재귀함수가 바로 그겁니다...<br><br>
+          <span class="comment">💡 "다시 설명해줘", "예시 하나 더 줘"를 두려워 말 것</span>
+        </div>
+      </div>
+    </div>
+    <!-- 모드 2 -->
+    <div class="card">
+      <div style="color:var(--purple);font-weight:700;font-size:.85rem;margin-bottom:12px">📋 모드 2 · 커리큘럼 설계</div>
+      <div class="prompt-box">
+        <div class="prompt-header"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span> 나의 질문</div>
+        <div class="prompt-body">
+          <span class="user">나:</span> 나는 파이썬을 전혀 모르는 비개발자야. 3개월 안에 데이터 분석을 할 수 있을 정도가 목표야. 주간 학습 계획 만들어줘.<br><br>
+          <span class="ai">AI:</span> 1주차: 변수·자료형·조건문 / 2주차: 함수·반복문...<br><br>
+          <span class="comment">💡 목표, 현재 수준, 가능한 시간을 함께 알려줄수록 정확함</span>
+        </div>
+      </div>
+    </div>
+    <!-- 모드 3 -->
+    <div class="card">
+      <div style="color:var(--green);font-weight:700;font-size:.85rem;margin-bottom:12px">🧪 모드 3 · 퀴즈·자기테스트</div>
+      <div class="prompt-box">
+        <div class="prompt-header"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span> 나의 질문</div>
+        <div class="prompt-body">
+          <span class="user">나:</span> 방금 CSS 플렉스박스 공부했어. 내가 제대로 이해했는지 확인할 수 있게 퀴즈 5개 내줘. 정답은 내가 먼저 답하고 나면 알려줘.<br><br>
+          <span class="ai">AI:</span> Q1. `justify-content: center`는 어느 방향으로 정렬하나요?<br><br>
+          <span class="comment">💡 배운 직후 퀴즈 = 기억 정착률 2배 (간격 반복 학습 원리)</span>
+        </div>
+      </div>
+    </div>
+    <!-- 모드 4 -->
+    <div class="card">
+      <div style="color:var(--yellow);font-weight:700;font-size:.85rem;margin-bottom:12px">🔍 모드 4 · 코드 리뷰</div>
+      <div class="prompt-box">
+        <div class="prompt-header"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span> 나의 질문</div>
+        <div class="prompt-body">
+          <span class="user">나:</span> 아래 코드를 짰는데, 어떤 문제가 있는지, 더 좋은 방법이 뭔지 설명해줘. 초보자 수준으로.<br><br>
+          [코드 붙여넣기]<br><br>
+          <span class="ai">AI:</span> 3가지 개선점이 있습니다. 첫째, 변수명이 너무 짧아서...<br><br>
+          <span class="comment">💡 정답 코드 달라는 것보다 "왜 나쁜지" 설명 요청이 훨씬 효과적</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:24px;">
+    <div class="ic">🌟</div>
+    <div>
+      <h3>소크라테스 모드 — 가장 강력한 학습법</h3>
+      <p>
+        <strong style="color:var(--text)">"정답을 바로 알려주지 말고, 내가 스스로 답에 도달할 수 있게 질문으로 유도해줘"</strong>라고 말하면 됩니다.<br>
+        AI가 힌트를 주고, 반론을 던지고, 생각을 확장시켜 줍니다. 단순히 답을 받는 것보다 기억에 훨씬 오래 남습니다.
+      </p>
+    </div>
+  </div>
+</section>
+
+<hr class="div"/>
+
+<!-- ===== SECTION 4 ===== -->
+<section id="prompts">
+  <div class="sec-badge">💬 PART 4</div>
+  <h2 class="title">바로 쓸 수 있는 프롬프트 모음</h2>
+  <p class="sub">복사해서 바로 ChatGPT / Claude에 붙여넣으세요.</p>
+
+  <div style="overflow-x:auto;border-radius:14px;border:1px solid var(--border);">
+    <table>
+      <thead><tr><th>상황</th><th>프롬프트 예시</th><th>효과</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="b bB">개념 이해</span></td>
+          <td>"[개념]을 처음 배우는 사람에게 현실 세계 비유로 설명해줘. 예시 코드도 포함해서."</td>
+          <td>직관적 이해</td>
+        </tr>
+        <tr>
+          <td><span class="b bP">학습 계획</span></td>
+          <td>"나는 [현재 수준]이고 [목표]를 [기간] 안에 이루고 싶어. 주차별 커리큘럼 만들어줘."</td>
+          <td>구조화된 학습</td>
+        </tr>
+        <tr>
+          <td><span class="b bG">퀴즈</span></td>
+          <td>"방금 [주제] 공부했어. 5지선다 퀴즈 5개 만들어줘. 내가 답하면 채점해줘."</td>
+          <td>기억 정착</td>
+        </tr>
+        <tr>
+          <td><span class="b bY">코드 리뷰</span></td>
+          <td>"이 코드의 문제점과 개선 방향을 주니어 개발자 관점에서 설명해줘. [코드]"</td>
+          <td>실력 향상</td>
+        </tr>
+        <tr>
+          <td><span class="b bO">오류 해결</span></td>
+          <td>"이 에러가 왜 났는지, 어떻게 고치는지 알려줘. [에러 메시지 붙여넣기]"</td>
+          <td>빠른 디버깅</td>
+        </tr>
+        <tr>
+          <td><span class="b bR">심화 탐구</span></td>
+          <td>"[개념]을 완전히 이해했어. 이게 실무에서 어떻게 쓰이는지, 연관 개념은 뭔지 알려줘."</td>
+          <td>깊이 있는 이해</td>
+        </tr>
+        <tr>
+          <td><span class="b bB">요약 정리</span></td>
+          <td>"[긴 글 / 강의 내용 붙여넣기]. 핵심 포인트 5개로 요약하고 내가 꼭 기억해야 할 것 강조해줘."</td>
+          <td>정보 소화</td>
+        </tr>
+        <tr>
+          <td><span class="b bP">소크라테스</span></td>
+          <td>"[주제]를 가르쳐줄 건데, 정답은 알려주지 말고 질문으로 나를 유도해줘. 내가 스스로 발견하게."</td>
+          <td>사고력 향상</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr class="div"/>
+
+<!-- ===== SECTION 5 ===== -->
+<section id="pitfalls">
+  <div class="sec-badge">⚠️ PART 5</div>
+  <h2 class="title">이것만은 주의하세요</h2>
+  <p class="sub">LLM을 잘못 쓰면 오히려 독이 됩니다. 실사용자들이 많이 빠지는 함정들입니다.</p>
+
+  <div class="grid2" style="margin-bottom:24px;">
+    <div>
+      <div class="warn">
+        <strong>❌ 함정 1 · 답만 받고 이해 안 하기</strong>
+        "코드 짜줘" → 받고 끝. 왜 그렇게 짰는지 모르면 다음에 또 물어봐야 합니다.<br>
+        <span style="color:var(--green)">✅ 해결: "이 코드 각 줄이 왜 이렇게 작성됐는지 설명해줘"</span>
+      </div>
+      <div class="warn">
+        <strong>❌ 함정 2 · AI 말을 무조건 믿기</strong>
+        LLM은 그럴 듯하게 틀립니다 (할루시네이션). 특히 최신 정보, 숫자, 법률은 반드시 검증하세요.<br>
+        <span style="color:var(--green)">✅ 해결: "이 정보 신뢰할 수 있어? 출처가 있어?" 항상 의심</span>
+      </div>
+      <div class="warn">
+        <strong>❌ 함정 3 · 너무 긴 대화 한 번에 처리</strong>
+        세션이 길어질수록 AI가 앞 내용을 "까먹고" 이상한 답을 냅니다.<br>
+        <span style="color:var(--green)">✅ 해결: 주제별로 새 대화 시작. 핵심 내용은 직접 정리</span>
+      </div>
+    </div>
+    <div>
+      <div class="warn">
+        <strong>❌ 함정 4 · 학습 없이 AI에 의존</strong>
+        AI가 다 만들어 준다고 이해 없이 쓰면 응용이 안 됩니다. 기초 개념은 내 것으로 만들어야 합니다.<br>
+        <span style="color:var(--green)">✅ 해결: AI는 선생님, 나는 학생. 배우는 과정을 생략하지 말 것</span>
+      </div>
+      <div class="warn">
+        <strong>❌ 함정 5 · 모호한 질문</strong>
+        "파이썬 알려줘" → 너무 광범위. AI도 어디서부터 말해야 할지 모릅니다.<br>
+        <span style="color:var(--green)">✅ 해결: 현재 수준 + 목표 + 구체적 상황을 함께 제시</span>
+      </div>
+      <div class="tip-box">
+        <strong>💡 핵심 원칙: AI는 도구, 두뇌는 내 것</strong>
+        LLM은 학습을 가속하는 도구입니다. 이해·판단·응용은 여전히 내가 해야 합니다. AI가 가르쳐준 내용을 <strong>직접 손으로 써보고, 설명해보고, 변형해보는 것</strong>이 진짜 학습입니다.
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:8px;">
+    <h3 style="font-size:.9rem;color:var(--muted);margin-bottom:16px">📊 학습 방법별 기억 정착률 (참고용)</h3>
+    <div class="cw"><canvas id="retentionChart"></canvas></div>
+  </div>
+</section>
+
+<hr class="div"/>
+
+<!-- ===== SECTION 6 ===== -->
+<section id="roadmap">
+  <div class="sec-badge">🗺️ PART 6</div>
+  <h2 class="title">LLM 학습 로드맵</h2>
+  <p class="sub">오늘부터 시작할 수 있는 단계별 가이드입니다.</p>
+
+  <div class="rm">
+
+    <div class="rm-row">
+      <div class="rm-num" style="background:rgba(52,211,153,.12);color:var(--green);border-color:var(--green)">1</div>
+      <div class="rm-body">
+        <div class="rm-tag" style="color:var(--green)">🟢 오늘 당장 · 무료</div>
+        <h3>AI와 첫 대화 시작</h3>
+        <ul class="rm-list">
+          <li><span class="ic">🌐</span><div><strong>ChatGPT.com 또는 Claude.ai 접속</strong><br><span style="color:var(--muted);font-size:.78rem">계정 만들고 무료로 사용 시작. 지금 당장 궁금한 것 아무거나 질문해보기</span></div></li>
+          <li><span class="ic">🎯</span><div><strong>"나를 소개"하고 맞춤 학습 요청하기</strong><br><span style="color:var(--muted);font-size:.78rem">현재 직업, 목표, 학습 가능 시간을 AI에게 알려주면 개인 맞춤 계획을 만들어 줌</span></div></li>
+          <li><span class="ic">✍️</span><div><strong>배운 내용 직접 손으로 정리</strong><br><span style="color:var(--muted);font-size:.78rem">노션, 옵시디언, 종이 노트 상관없음. AI가 가르쳐준 내용을 내 말로 다시 써보기</span></div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="rm-row">
+      <div class="rm-num" style="background:rgba(56,189,248,.12);color:var(--blue);border-color:var(--blue)">2</div>
+      <div class="rm-body">
+        <div class="rm-tag" style="color:var(--blue)">🔵 1~2주 · 무료</div>
+        <h3>나만의 학습 루틴 만들기</h3>
+        <ul class="rm-list">
+          <li><span class="ic">📅</span><div><strong>매일 30분 AI와 공부 세션</strong><br><span style="color:var(--muted);font-size:.78rem">개념 1개 → 질문 → 이해 → 퀴즈 → 정리. 짧고 꾸준하게가 핵심</span></div></li>
+          <li><span class="ic">🧪</span><div><strong>배운 것 바로 실습</strong><br><span style="color:var(--muted);font-size:.78rem">코딩이면 직접 타이핑, 글쓰기면 직접 작성. "이해"와 "할 수 있음"은 다름</span></div></li>
+          <li><span class="ic">💬</span><div><strong>모르는 것이 생기면 즉시 질문</strong><br><span style="color:var(--muted);font-size:.78rem">"나중에 찾아볼게"가 아니라 그 자리에서 바로. 흐름이 끊기지 않게</span></div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="rm-row">
+      <div class="rm-num" style="background:rgba(167,139,250,.12);color:var(--purple);border-color:var(--purple)">3</div>
+      <div class="rm-body">
+        <div class="rm-tag" style="color:var(--purple)">🟣 2~4주</div>
+        <h3>프롬프트 수준 올리기</h3>
+        <ul class="rm-list">
+          <li><span class="ic">🎭</span><div><strong>역할 지정 프롬프트 활용</strong><br><span style="color:var(--muted);font-size:.78rem">"너는 10년 경력 파이썬 개발자야. 주니어 개발자인 나에게 코드 리뷰해줘"</span></div></li>
+          <li><span class="ic">🔗</span><div><strong>System Prompt 직접 설정</strong><br><span style="color:var(--muted);font-size:.78rem">Claude Projects / ChatGPT Custom Instructions에 내 수준·목표·규칙을 미리 입력해두면 매번 설명 안 해도 됨</span></div></li>
+          <li><span class="ic">📊</span><div><strong>내 학습 데이터 분석 요청</strong><br><span style="color:var(--muted);font-size:.78rem">"지난 2주 동안 내가 틀렸던 개념들을 보니 패턴이 뭔지 분석해줘"</span></div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="rm-row">
+      <div class="rm-num" style="background:rgba(251,191,36,.12);color:var(--yellow);border-color:var(--yellow)">4</div>
+      <div class="rm-body">
+        <div class="rm-tag" style="color:var(--yellow)">🟡 1~2개월</div>
+        <h3>실전 프로젝트로 검증</h3>
+        <ul class="rm-list">
+          <li><span class="ic">🏗️</span><div><strong>배운 내용으로 실제 뭔가 만들기</strong><br><span style="color:var(--muted);font-size:.78rem">아주 작은 것도 OK. "동작하는 무언가"를 만들면 학습이 통합됨</span></div></li>
+          <li><span class="ic">🤖</span><div><strong>AI를 코딩 파트너로 활용</strong><br><span style="color:var(--muted);font-size:.78rem">Cursor, Claude Code 등 에이전트 도구로 실제 프로젝트 진행해보기</span></div></li>
+          <li><span class="ic">📝</span><div><strong>배운 것을 남에게 설명해보기</strong><br><span style="color:var(--muted);font-size:.78rem">블로그, 커뮤니티 글쓰기, 혹은 AI에게 "내가 이 개념 제대로 이해했는지 내 설명 평가해줘"</span></div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="rm-row">
+      <div class="rm-num" style="background:rgba(244,114,182,.12);color:var(--pink);border-color:var(--pink)">5</div>
+      <div class="rm-body">
+        <div class="rm-tag" style="color:var(--pink)">🌸 진행형</div>
+        <h3>멀티 LLM 전략으로 확장</h3>
+        <ul class="rm-list">
+          <li><span class="ic">🔀</span><div><strong>모델을 목적별로 분리해서 사용</strong><br><span style="color:var(--muted);font-size:.78rem">코딩·깊이 있는 분석 → Claude / 빠른 검색·최신 정보 → Perplexity / 이미지 → Gemini</span></div></li>
+          <li><span class="ic">🧩</span><div><strong>NotebookLM 활용</strong><br><span style="color:var(--muted);font-size:.78rem">Google의 무료 도구. PDF·유튜브 영상을 올리면 AI가 읽고 질문에 답해주는 개인 지식베이스 구축</span></div></li>
+          <li><span class="ic">🔄</span><div><strong>AI에게 배운 것을 AI로 자동화</strong><br><span style="color:var(--muted);font-size:.78rem">반복 업무를 스크립트로 만들어 자동화. 배운 코딩 지식이 실제 생산성으로 이어짐</span></div></li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /rm -->
+
+  <!-- 추천 도구 표 -->
+  <div style="margin-top:36px;">
+    <h3 style="font-size:1rem;margin-bottom:16px;color:var(--muted)">🛠️ 학습 목적별 추천 LLM 도구</h3>
+    <div style="overflow-x:auto;border-radius:14px;border:1px solid var(--border);">
+      <table>
+        <thead><tr><th>학습 목적</th><th>추천 도구</th><th>이유</th><th>비용</th></tr></thead>
+        <tbody>
+          <tr><td>처음 AI 경험</td><td><strong>ChatGPT</strong></td><td>가장 직관적, 레퍼런스 최다</td><td><span class="b bG">무료</span></td></tr>
+          <tr><td>코딩 학습</td><td><strong>Claude.ai</strong></td><td>코드 이해·설명 업계 최고</td><td><span class="b bG">무료</span></td></tr>
+          <tr><td>문서·논문 정리</td><td><strong>NotebookLM</strong></td><td>파일 업로드 후 Q&A 가능</td><td><span class="b bG">무료</span></td></tr>
+          <tr><td>최신 정보 검색</td><td><strong>Perplexity</strong></td><td>출처 제시하며 웹 검색</td><td><span class="b bG">무료</span></td></tr>
+          <tr><td>실전 코딩 프로젝트</td><td><strong>Cursor</strong></td><td>IDE 내에서 AI와 함께 코딩</td><td><span class="b bB">무료~$20</span></td></tr>
+          <tr><td>깊은 분석·글쓰기</td><td><strong>Claude Pro</strong></td><td>긴 문서 처리, 고품질 출력</td><td><span class="b bO">$20/월</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 마무리 -->
+  <div class="final">
+    <div style="font-size:2.2rem;margin-bottom:14px">🎓</div>
+    <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:10px">LLM은 지식을 대신해주지 않습니다</h2>
+    <p style="color:var(--muted);font-size:.9rem;max-width:520px;margin:0 auto 20px;line-height:1.8">
+      LLM은 <strong style="color:var(--text)">학습의 속도를 높여주는 엔진</strong>이지, 학습 자체를 대신해 주는 도구가 아닙니다.<br>
+      이해하고, 손으로 써보고, 틀리고, 다시 묻고 — 그 과정을 AI와 함께 하면<br>
+      <strong style="color:var(--blue)">혼자 공부할 때보다 3~5배 빠르게</strong> 성장할 수 있습니다.
+    </p>
+    <p style="color:var(--purple);font-weight:700;font-size:1rem;margin-bottom:20px">지금 바로 ChatGPT에 이 질문을 해보세요 👇</p>
+    <div style="background:#0d1117;border:1px solid var(--border);border-radius:10px;padding:16px 20px;max-width:480px;margin:0 auto 24px;font-size:.88rem;font-family:monospace;text-align:left;color:var(--green);">
+      "나는 [내 현재 상황]이고 [배우고 싶은 것]에 관심 있어.<br>
+      3개월 플랜과 오늘 당장 시작할 수 있는 첫 번째 미션 알려줘."
+    </div>
+    <a href="https://chatgpt.com" style="display:inline-block;padding:12px 32px;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;font-weight:700;text-decoration:none;font-size:.9rem;">지금 시작하기 →</a>
+  </div>
+
+</section>
+
+<footer>
+  <p>🧠 LLM으로 학습하는 법 · 비기너 완전 가이드 · 2026년 3월</p>
+  <p style="margin-top:6px">코드팩토리 바이브코딩 채팅방 분석 + 학습과학 연구 기반으로 구성되었습니다.</p>
+</footer>
+
+<script>
+const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#64748b',font:{size:11}}}}};
+
+// 학습 속도 비교
+new Chart(document.getElementById('speedChart'),{
+  type:'bar',
+  data:{
+    labels:['개념 이해','오류 해결','코드 리뷰','커리큘럼 설계','질문 응답'],
+    datasets:[
+      {label:'기존 방식 (시간)',data:[3,4,2,5,2],backgroundColor:'rgba(100,116,139,.5)',borderRadius:5},
+      {label:'LLM 활용 (시간)',data:[0.5,0.3,0.5,0.3,0.1],backgroundColor:'rgba(56,189,248,.7)',borderRadius:5}
+    ]
+  },
+  options:{
+    ...base,
+    scales:{
+      x:{ticks:{color:'#64748b',font:{size:10}},grid:{display:false}},
+      y:{ticks:{color:'#64748b'},grid:{color:'#1e2d45'},title:{display:true,text:'소요 시간(시간)',color:'#64748b',font:{size:10}}}
+    }
+  }
+});
+
+// LLM이 잘하는 영역 레이더
+new Chart(document.getElementById('domainChart'),{
+  type:'radar',
+  data:{
+    labels:['코딩 학습','개념 설명','문서 요약','퀴즈 생성','코드 리뷰','커리큘럼'],
+    datasets:[{
+      label:'LLM 효과',
+      data:[95,90,88,92,85,82],
+      borderColor:'#38bdf8',
+      backgroundColor:'rgba(56,189,248,.12)',
+      pointBackgroundColor:'#38bdf8',
+      borderWidth:2
+    },{
+      label:'기존 방식',
+      data:[50,55,45,40,35,50],
+      borderColor:'#475569',
+      backgroundColor:'rgba(71,85,105,.1)',
+      pointBackgroundColor:'#475569',
+      borderWidth:2
+    }]
+  },
+  options:{
+    ...base,
+    scales:{r:{
+      ticks:{color:'#374151',backdropColor:'transparent',font:{size:9}},
+      grid:{color:'#1e2d45'},
+      pointLabels:{color:'#64748b',font:{size:10}}
+    }}
+  }
+});
+
+// 기억 정착률
+new Chart(document.getElementById('retentionChart'),{
+  type:'bar',
+  data:{
+    labels:['강의만 듣기','읽기','시청각','시범 보기','토론하기','직접 해보기','남에게 가르치기'],
+    datasets:[{
+      label:'24시간 후 기억률 (%)',
+      data:[5,10,20,30,50,75,90],
+      backgroundColor:['#475569','#475569','#64748b','#94a3b8','#38bdf8','#a78bfa','#34d399'],
+      borderRadius:6
+    }]
+  },
+  options:{
+    ...base,
+    indexAxis:'y',
+    plugins:{...base.plugins,legend:{display:false}},
+    scales:{
+      x:{max:100,ticks:{color:'#64748b',callback:v=>v+'%'},grid:{color:'#1e2d45'}},
+      y:{ticks:{color:'#94a3b8',font:{size:11}},grid:{display:false}}
+    }
+  }
+});
+</script>
+</body>
+</html>

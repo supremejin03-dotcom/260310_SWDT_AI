@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM 동작 원리 — 쉽게 풀어보기</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --card: #1a2235;
+    --border: #2d3a52;
+    --accent: #6366f1;
+    --accent2: #22d3ee;
+    --accent3: #f59e0b;
+    --accent4: #10b981;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; line-height: 1.8; }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,14,26,0.95); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center;
+  }
+  nav a { color: var(--muted); text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
+  nav a:hover { color: var(--accent2); }
+  nav .logo { color: var(--accent); font-weight: 700; font-size: 1rem; margin-right: 16px; }
+
+  .hero {
+    background: linear-gradient(135deg, #0a0e1a 0%, #1a1040 50%, #0a1628 100%);
+    padding: 80px 24px; text-align: center; position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.15) 0%, transparent 70%);
+  }
+  .hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; position: relative;
+    background: linear-gradient(90deg, #6366f1, #22d3ee, #f59e0b);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { margin-top: 16px; font-size: 1.1rem; color: var(--muted); max-width: 640px; margin-inline: auto; position: relative; }
+  .hero-tags { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 24px; position: relative; }
+  .tag { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4); color: var(--accent2);
+    padding: 4px 14px; border-radius: 20px; font-size: 0.8rem; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 60px 24px; }
+  section { margin-bottom: 80px; }
+  .section-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+  .section-title span.icon { font-size: 1.5rem; }
+  .section-sub { color: var(--muted); margin-bottom: 32px; font-size: 1rem; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+
+  .highlight { background: rgba(99,102,241,0.08); border-left: 4px solid var(--accent);
+    border-radius: 0 12px 12px 0; padding: 20px 24px; margin: 20px 0; }
+  .highlight.green { background: rgba(16,185,129,0.08); border-color: var(--accent4); }
+  .highlight.yellow { background: rgba(245,158,11,0.08); border-color: var(--accent3); }
+  .highlight.cyan { background: rgba(34,211,238,0.08); border-color: var(--accent2); }
+
+  .chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; text-align: center; }
+  .stat-num { font-size: 2.2rem; font-weight: 800; background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-label { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+
+  .pill { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+  .pill-purple { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+  .pill-cyan { background: rgba(34,211,238,0.15); color: #67e8f9; }
+  .pill-yellow { background: rgba(245,158,11,0.15); color: #fcd34d; }
+  .pill-green { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--surface); color: var(--accent2); font-size: 0.82rem; text-transform: uppercase;
+    letter-spacing: 0.5px; padding: 14px 16px; text-align: left; }
+  td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step { display: flex; gap: 20px; align-items: flex-start; padding: 24px; position: relative; }
+  .step:not(:last-child)::after { content: '↓'; position: absolute; bottom: -8px; left: 36px;
+    font-size: 1.4rem; color: var(--accent); line-height: 1; }
+  .step-num { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; flex-shrink: 0; }
+  .step-content h4 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+  .step-content p { color: var(--muted); font-size: 0.9rem; }
+
+  /* 비유 박스 */
+  .analogy { background: rgba(34,211,238,0.06); border: 1px dashed rgba(34,211,238,0.3);
+    border-radius: 12px; padding: 20px 24px; margin: 16px 0; }
+  .analogy-label { color: var(--accent2); font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+
+  /* 숫자 흐름 */
+  .num-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0; font-family: monospace; }
+  .num-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-size: 0.85rem; text-align: center; min-width: 80px; }
+  .num-box.accent { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.1); }
+  .num-box.cyan { border-color: var(--accent2); color: var(--accent2); background: rgba(34,211,238,0.08); }
+  .num-box.yellow { border-color: var(--accent3); color: var(--accent3); background: rgba(245,158,11,0.08); }
+  .num-box.green { border-color: var(--accent4); color: var(--accent4); background: rgba(16,185,129,0.08); }
+  .flow-arrow { color: var(--muted); font-size: 1.3rem; }
+
+  /* 뉴런 카드 */
+  .neuron-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+
+  /* 가중치 슬라이더 느낌 */
+  .weight-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+  .weight-label { width: 80px; font-size: 0.85rem; color: var(--muted); flex-shrink: 0; }
+  .weight-bar-bg { flex: 1; height: 10px; background: rgba(255,255,255,0.07); border-radius: 5px; overflow: hidden; }
+  .weight-bar { height: 100%; border-radius: 5px; }
+  .weight-val { width: 50px; text-align: right; font-size: 0.83rem; font-family: monospace; }
+
+  /* 토큰 */
+  .token-demo { display: flex; flex-wrap: wrap; gap: 6px; padding: 20px; background: var(--surface); border-radius: 12px; }
+  .token { padding: 5px 12px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; }
+  .t1 { background: rgba(99,102,241,0.25); color: #a5b4fc; }
+  .t2 { background: rgba(34,211,238,0.2); color: #67e8f9; }
+  .t3 { background: rgba(245,158,11,0.2); color: #fcd34d; }
+  .t4 { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+  .t5 { background: rgba(244,63,94,0.2); color: #fda4af; }
+
+  /* 확률 바 */
+  .prob-row { display: flex; align-items: center; gap: 10px; margin: 7px 0; }
+  .prob-word { width: 90px; font-size: 0.88rem; flex-shrink: 0; }
+  .prob-bar-bg { flex: 1; height: 22px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; position: relative; }
+  .prob-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 0.78rem; font-weight: 700; color: white; }
+
+  footer { text-align: center; padding: 40px 24px; color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--border); }
+
+  @media (max-width: 600px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .num-flow { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">🧠 LLM 쉽게 이해하기</span>
+  <a href="#big-picture">핵심 요약</a>
+  <a href="#number">숫자의 세계</a>
+  <a href="#neuron">뉴런</a>
+  <a href="#token">토큰</a>
+  <a href="#training">학습</a>
+  <a href="#attention">어텐션</a>
+  <a href="#generate">생성</a>
+</nav>
+
+<div class="hero">
+  <h1>LLM, 사실 이렇게 동작합니다</h1>
+  <p>복잡해 보이는 AI, 알고 보면 딱 하나입니다.<br>"숫자를 계속 곱하고 더하다 보면 언어가 나온다."</p>
+  <div class="hero-tags">
+    <span class="tag">비유로 이해하는 AI</span>
+    <span class="tag">행렬 = 엑셀 표</span>
+    <span class="tag">학습 = 시험 반복</span>
+    <span class="tag">어텐션 = 형광펜</span>
+    <span class="tag">생성 = 자동완성</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ====== 1. 한 줄 핵심 ====== -->
+  <section id="big-picture">
+    <div class="section-title"><span class="icon">💡</span> 딱 한 줄로 설명하면</div>
+    <p class="section-sub">LLM의 본질을 가장 단순하게 표현하면 이렇습니다.</p>
+
+    <div class="highlight cyan" style="font-size:1.15rem; text-align:center; padding:32px;">
+      <strong style="font-size:1.4rem; display:block; margin-bottom:12px; color:var(--accent2);">
+        "다음에 올 단어가 뭔지 맞추는 게임을<br>수천억 번 반복한 결과물"
+      </strong>
+      <span style="color:var(--muted);">그 과정에서 문법, 사실, 논리, 코딩, 감정까지 자연스럽게 학습됩니다.</span>
+    </div>
+
+    <div class="grid-4" style="margin-top:24px;">
+      <div class="stat-card">
+        <div class="stat-num">숫자</div>
+        <div class="stat-label">AI가 다루는 것의 전부</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">×+</div>
+        <div class="stat-label">하는 연산의 전부 (곱셈·덧셈)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">수조</div>
+        <div class="stat-label">반복 학습 횟수</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">언어</div>
+        <div class="stat-label">나오는 결과물</div>
+      </div>
+    </div>
+
+    <div class="analogy" style="margin-top:24px;">
+      <div class="analogy-label">🎯 BIG PICTURE 비유</div>
+      <strong>네이버 검색창의 "자동완성"을 떠올려보세요.</strong><br>
+      "삼성전자 주" 까지 치면 "가"가 뜨죠. LLM도 똑같은 원리입니다.
+      다만 <strong style="color:var(--accent2);">훨씬 거대한 자동완성</strong>이라서, 문장 전체 맥락을 보고 다음 단어를 예측합니다.
+      이걸 반복하면 문단이 되고, 에세이가 되고, 코드가 됩니다.
+    </div>
+  </section>
+
+  <!-- ====== 2. 숫자의 세계 ====== -->
+  <section id="number">
+    <div class="section-title"><span class="icon">🔢</span> AI의 세계엔 숫자만 있다</div>
+    <p class="section-sub">AI는 글자도, 의미도 모릅니다. 오직 숫자만 봅니다. 그럼 어떻게 언어를 이해할까요?</p>
+
+    <div class="grid-2" style="margin-bottom:24px;">
+      <div class="card">
+        <h4 style="color:var(--accent3); margin-bottom:16px;">단어 → 숫자 벡터 변환</h4>
+        <p style="color:var(--muted); font-size:0.9rem; margin-bottom:16px;">
+          "고양이"라는 단어는 AI 눈에 이렇게 보입니다:
+        </p>
+        <div class="num-flow">
+          <div class="num-box" style="font-size:1.1rem; font-weight:700;">"고양이"</div>
+          <div class="flow-arrow">→</div>
+          <div class="num-box accent">ID: 4521</div>
+          <div class="flow-arrow">→</div>
+          <div class="num-box cyan" style="font-size:0.75rem; min-width:160px;">[0.23, -1.4, 0.87, 0.12,<br>-0.55, 1.3, ... (4096개)]</div>
+        </div>
+        <p style="color:var(--muted); font-size:0.85rem; margin-top:12px;">
+          단어 하나가 <strong style="color:var(--text);">4096개의 숫자 리스트</strong>로 표현됩니다.<br>
+          이 숫자들이 그 단어의 "의미"를 담고 있습니다.
+        </p>
+      </div>
+      <div class="card">
+        <h4 style="color:var(--accent3); margin-bottom:16px;">의미가 숫자에 담기는 방법</h4>
+        <div class="analogy" style="margin:0 0 12px 0;">
+          <div class="analogy-label">✏️ 핵심 비유</div>
+          "왕"과 "여왕"은 숫자 공간에서 <strong style="color:var(--accent2);">가까이</strong> 위치합니다.<br>
+          "왕 - 남자 + 여자 = 여왕"이 수학적으로 성립합니다.<br>
+          의미가 비슷한 단어 → 비슷한 숫자 벡터
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:10px; font-size:0.85rem;">
+            <span style="width:60px; color:var(--accent3);">왕 ↔ 여왕</span>
+            <div style="flex:1; height:8px; background:rgba(16,185,129,0.6); border-radius:4px;"></div>
+            <span style="color:var(--accent4);">매우 가까움</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; font-size:0.85rem;">
+            <span style="width:60px; color:var(--accent3);">고양이 ↔ 강아지</span>
+            <div style="flex:1; height:8px; background:rgba(34,211,238,0.5); border-radius:4px;"></div>
+            <span style="color:var(--accent2);">가까움</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; font-size:0.85rem;">
+            <span style="width:60px; color:var(--accent3);">고양이 ↔ 자동차</span>
+            <div style="flex:1; height:8px; background:rgba(244,63,94,0.3); border-radius:4px; width:20%;"></div>
+            <span style="color:var(--muted);">멀음</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight">
+      <strong>핵심 포인트:</strong> AI는 "고양이"라는 글자를 이해하는 게 아닙니다. 4096개의 숫자 패턴이 다른 단어들의 숫자 패턴과 어떻게 관계되는지를 학습합니다. 이것이 "의미를 이해한다"는 것의 실체입니다.
+    </div>
+  </section>
+
+  <!-- ====== 3. 뉴런과 가중치 ====== -->
+  <section id="neuron">
+    <div class="section-title"><span class="icon">⚡</span> 뉴런 — "중요도를 곱해서 더하기"</div>
+    <p class="section-sub">신경망의 핵심 연산은 딱 하나입니다. 입력에 중요도(가중치)를 곱해서 전부 더하는 것.</p>
+
+    <div class="grid-2" style="margin-bottom:24px;">
+      <div class="neuron-card">
+        <h4 style="color:var(--accent2); margin-bottom:16px;">뉴런이 하는 일 — 예시</h4>
+        <p style="color:var(--muted); font-size:0.88rem; margin-bottom:16px;">
+          "이 동네 치킨집 갈까?" 결정을 내리는 뇌세포를 상상해보세요.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div class="weight-row">
+            <span class="weight-label">🍗 맛있나</span>
+            <div class="weight-bar-bg"><div class="weight-bar" style="width:90%; background:linear-gradient(90deg,var(--accent4),var(--accent2));"></div></div>
+            <span class="weight-val" style="color:var(--accent4);">× 0.9</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">💰 가격</span>
+            <div class="weight-bar-bg"><div class="weight-bar" style="width:60%; background:linear-gradient(90deg,var(--accent3),var(--accent));"></div></div>
+            <span class="weight-val" style="color:var(--accent3);">× 0.6</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">📍 거리</span>
+            <div class="weight-bar-bg"><div class="weight-bar" style="width:30%; background:linear-gradient(90deg,var(--accent5,#f43f5e),var(--accent3));"></div></div>
+            <span class="weight-val" style="color:var(--muted);">× 0.3</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">⏰ 웨이팅</span>
+            <div class="weight-bar-bg"><div class="weight-bar" style="width:15%; background:rgba(244,63,94,0.6);"></div></div>
+            <span class="weight-val" style="color:rgba(244,63,94,0.8);">× -0.5</span>
+          </div>
+        </div>
+        <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border); font-family:monospace; font-size:0.88rem;">
+          합계 = (맛×0.9) + (가격×0.6) + (거리×0.3) + (웨이팅×-0.5)<br>
+          <span style="color:var(--accent4);">합계 > 임계값 → "가자!" 신호 발생</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:16px;">
+          <h4 style="color:var(--accent3); margin-bottom:12px;">인공 신경망도 똑같습니다</h4>
+          <p style="color:var(--muted); font-size:0.88rem; line-height:1.9;">
+            입력 숫자들에 각각 "중요도(가중치)"를 곱하고 전부 더합니다.<br>
+            이 <strong style="color:var(--text);">"가중치"</strong>가 바로 AI가 학습하는 것의 정체입니다.<br><br>
+            GPT-4의 파라미터 수조 개 = 이 가중치 숫자들의 개수<br>
+            학습 = 이 가중치들을 조금씩 조정하는 과정
+          </p>
+        </div>
+        <div class="analogy">
+          <div class="analogy-label">📊 엑셀 비유</div>
+          신경망 연산은 사실 <strong style="color:var(--accent2);">엑셀 표의 SUMPRODUCT 함수</strong>입니다.<br>
+          <code style="background:rgba(255,255,255,0.06); padding:4px 8px; border-radius:4px; font-size:0.85rem; color:var(--accent3);">
+            =SUMPRODUCT(입력범위, 가중치범위)
+          </code><br>
+          이걸 수십억 번 반복하면 AI입니다.
+        </div>
+        <div class="highlight green" style="margin-top:12px;">
+          <strong>왜 여러 층(레이어)을 쌓나?</strong><br>
+          1층: 선, 점 같은 단순 패턴 인식<br>
+          2층: 눈, 코 같은 복합 패턴<br>
+          3층: 얼굴 전체<br>
+          층이 깊어질수록 더 추상적인 개념 학습 가능
+        </div>
+      </div>
+    </div>
+
+    <!-- SVG 뉴런 다이어그램 -->
+    <div class="card">
+      <h4 style="color:var(--accent2); margin-bottom:20px; text-align:center;">신경망 구조 — 층을 쌓는 이유</h4>
+      <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-width:700px; display:block; margin:0 auto;">
+        <!-- 입력층 -->
+        <text x="60" y="20" fill="#94a3b8" font-size="11" text-anchor="middle">입력층</text>
+        <circle cx="60" cy="60" r="18" fill="#1a2235" stroke="#6366f1" stroke-width="2"/>
+        <text x="60" y="64" fill="#a5b4fc" font-size="9" text-anchor="middle">"고양이"</text>
+        <circle cx="60" cy="110" r="18" fill="#1a2235" stroke="#6366f1" stroke-width="2"/>
+        <text x="60" y="114" fill="#a5b4fc" font-size="9" text-anchor="middle">"가"</text>
+        <circle cx="60" cy="160" r="18" fill="#1a2235" stroke="#6366f1" stroke-width="2"/>
+        <text x="60" y="164" fill="#a5b4fc" font-size="9" text-anchor="middle">"밥을"</text>
+
+        <!-- 화살표들 -->
+        <line x1="78" y1="60" x2="172" y2="80" stroke="#6366f1" stroke-width="1" opacity="0.5"/>
+        <line x1="78" y1="60" x2="172" y2="110" stroke="#6366f1" stroke-width="1" opacity="0.5"/>
+        <line x1="78" y1="60" x2="172" y2="140" stroke="#6366f1" stroke-width="1" opacity="0.5"/>
+        <line x1="78" y1="110" x2="172" y2="80" stroke="#22d3ee" stroke-width="1" opacity="0.5"/>
+        <line x1="78" y1="110" x2="172" y2="110" stroke="#22d3ee" stroke-width="1" opacity="0.5"/>
+        <line x1="78" y1="110" x2="172" y2="140" stroke="#22d3ee" stroke-width="1" opacity="0.5"/>
+        <line x1="78" y1="160" x2="172" y2="80" stroke="#f59e0b" stroke-width="1" opacity="0.5"/>
+        <line x1="78" y1="160" x2="172" y2="110" stroke="#f59e0b" stroke-width="1" opacity="0.5"/>
+        <line x1="78" y1="160" x2="172" y2="140" stroke="#f59e0b" stroke-width="1" opacity="0.5"/>
+
+        <!-- 은닉층 1 -->
+        <text x="190" y="20" fill="#94a3b8" font-size="11" text-anchor="middle">은닉층 1</text>
+        <text x="190" y="34" fill="#94a3b8" font-size="9" text-anchor="middle">(단순 패턴)</text>
+        <circle cx="190" cy="80" r="18" fill="#1a2235" stroke="#22d3ee" stroke-width="2"/>
+        <text x="190" y="84" fill="#67e8f9" font-size="8" text-anchor="middle">패턴A</text>
+        <circle cx="190" cy="110" r="18" fill="#1a2235" stroke="#22d3ee" stroke-width="2"/>
+        <text x="190" y="114" fill="#67e8f9" font-size="8" text-anchor="middle">패턴B</text>
+        <circle cx="190" cy="140" r="18" fill="#1a2235" stroke="#22d3ee" stroke-width="2"/>
+        <text x="190" y="144" fill="#67e8f9" font-size="8" text-anchor="middle">패턴C</text>
+
+        <!-- 화살표들 2 -->
+        <line x1="208" y1="80" x2="302" y2="95" stroke="#22d3ee" stroke-width="1" opacity="0.5"/>
+        <line x1="208" y1="80" x2="302" y2="125" stroke="#22d3ee" stroke-width="1" opacity="0.5"/>
+        <line x1="208" y1="110" x2="302" y2="95" stroke="#f59e0b" stroke-width="1" opacity="0.5"/>
+        <line x1="208" y1="110" x2="302" y2="125" stroke="#f59e0b" stroke-width="1" opacity="0.5"/>
+        <line x1="208" y1="140" x2="302" y2="95" stroke="#6366f1" stroke-width="1" opacity="0.5"/>
+        <line x1="208" y1="140" x2="302" y2="125" stroke="#6366f1" stroke-width="1" opacity="0.5"/>
+
+        <!-- 은닉층 2 -->
+        <text x="320" y="20" fill="#94a3b8" font-size="11" text-anchor="middle">은닉층 2</text>
+        <text x="320" y="34" fill="#94a3b8" font-size="9" text-anchor="middle">(복합 개념)</text>
+        <circle cx="320" cy="95" r="18" fill="#1a2235" stroke="#f59e0b" stroke-width="2"/>
+        <text x="320" y="99" fill="#fcd34d" font-size="8" text-anchor="middle">주어</text>
+        <circle cx="320" cy="125" r="18" fill="#1a2235" stroke="#f59e0b" stroke-width="2"/>
+        <text x="320" y="129" fill="#fcd34d" font-size="8" text-anchor="middle">행동</text>
+
+        <!-- ... 반복 표시 -->
+        <text x="390" y="110" fill="#94a3b8" font-size="18" text-anchor="middle">···</text>
+        <text x="390" y="130" fill="#94a3b8" font-size="9" text-anchor="middle">×32 레이어</text>
+
+        <!-- 출력층 -->
+        <text x="520" y="20" fill="#94a3b8" font-size="11" text-anchor="middle">출력층</text>
+        <text x="520" y="34" fill="#94a3b8" font-size="9" text-anchor="middle">(다음 단어 확률)</text>
+        <circle cx="520" cy="60" r="18" fill="#1a2235" stroke="#10b981" stroke-width="2"/>
+        <text x="520" y="57" fill="#6ee7b7" font-size="7" text-anchor="middle">"먹었다"</text>
+        <text x="520" y="67" fill="#6ee7b7" font-size="7" text-anchor="middle">45%</text>
+        <circle cx="520" cy="110" r="18" fill="#1a2235" stroke="#10b981" stroke-width="1.5"/>
+        <text x="520" y="107" fill="#6ee7b7" font-size="7" text-anchor="middle">"잡았다"</text>
+        <text x="520" y="117" fill="#6ee7b7" font-size="7" text-anchor="middle">30%</text>
+        <circle cx="520" cy="160" r="18" fill="#1a2235" stroke="#10b981" stroke-width="1"/>
+        <text x="520" y="157" fill="#6ee7b7" font-size="7" text-anchor="middle">"좋아한다"</text>
+        <text x="520" y="167" fill="#6ee7b7" font-size="7" text-anchor="middle">15%</text>
+
+        <!-- 선택 화살표 -->
+        <line x1="410" y1="110" x2="498" y2="80" stroke="#10b981" stroke-width="2"/>
+        <line x1="410" y1="110" x2="498" y2="110" stroke="#10b981" stroke-width="1" opacity="0.4"/>
+        <line x1="410" y1="110" x2="498" y2="155" stroke="#10b981" stroke-width="0.8" opacity="0.2"/>
+
+        <!-- 최종 선택 -->
+        <text x="620" y="55" fill="#10b981" font-size="11" font-weight="bold">→ 선택!</text>
+        <text x="620" y="70" fill="#6ee7b7" font-size="10">"먹었다"</text>
+        <line x1="540" y1="62" x2="610" y2="62" stroke="#10b981" stroke-width="2"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ====== 4. 토큰 ====== -->
+  <section id="token">
+    <div class="section-title"><span class="icon">🔤</span> 토큰 — AI가 언어를 자르는 방식</div>
+    <p class="section-sub">AI는 글자 단위도, 단어 단위도 아닌 "토큰" 단위로 언어를 처리합니다.</p>
+
+    <div class="grid-2" style="margin-bottom:20px;">
+      <div class="card">
+        <h4 style="color:var(--accent3); margin-bottom:12px;">같은 문장을 3가지 방식으로 나누면</h4>
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <div style="font-size:0.78rem; color:var(--muted); margin-bottom:6px;">❌ 글자 단위 (비효율)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">
+              <span class="token t1">인</span><span class="token t1">공</span><span class="token t1">지</span><span class="token t1">능</span><span class="token t1">은</span><span class="token t1"> </span><span class="token t1">미</span><span class="token t1">래</span><span class="token t1">다</span>
+            </div>
+            <div style="font-size:0.78rem; color:var(--muted); margin-top:4px;">9개 → 너무 세밀, 학습 느림</div>
+          </div>
+          <div>
+            <div style="font-size:0.78rem; color:var(--muted); margin-bottom:6px;">❌ 단어 단위 (신조어 문제)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">
+              <span class="token t3">인공지능은</span><span class="token t3">미래다</span>
+            </div>
+            <div style="font-size:0.78rem; color:var(--muted); margin-top:4px;">2개 → "챗GPT" 같은 신조어 처리 불가</div>
+          </div>
+          <div>
+            <div style="font-size:0.78rem; color:var(--accent4); margin-bottom:6px;">✅ 토큰 단위 (최적화)</div>
+            <div class="token-demo" style="padding:10px;">
+              <span class="token t1">인공</span><span class="token t2">지능</span><span class="token t3">은</span><span class="token t4"> 미래</span><span class="token t5">다</span>
+            </div>
+            <div style="font-size:0.78rem; color:var(--accent4); margin-top:4px;">5개 → 의미 단위로 최적 분할</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h4 style="color:var(--accent3); margin-bottom:12px;">토큰이 숫자가 되는 과정</h4>
+        <div class="steps">
+          <div class="step" style="padding:14px;">
+            <div class="step-num" style="width:32px; height:32px; font-size:0.85rem;">1</div>
+            <div class="step-content">
+              <h4>"고양이" → 토큰 ID #4521</h4>
+              <p>50,000개짜리 사전에서 번호 찾기 (딕셔너리 조회)</p>
+            </div>
+          </div>
+          <div class="step" style="padding:14px;">
+            <div class="step-num" style="width:32px; height:32px; font-size:0.85rem;">2</div>
+            <div class="step-content">
+              <h4>#4521 → 4096개 숫자 벡터</h4>
+              <p>테이블에서 해당 행 꺼내기 (배열 인덱싱)</p>
+            </div>
+          </div>
+          <div class="step" style="padding:14px;">
+            <div class="step-num" style="width:32px; height:32px; font-size:0.85rem;">3</div>
+            <div class="step-content">
+              <h4>벡터가 신경망을 통과</h4>
+              <p>32개 레이어를 거치며 의미가 변환됨</p>
+            </div>
+          </div>
+          <div class="step" style="padding:14px; border-radius:10px;">
+            <div class="step-num" style="width:32px; height:32px; font-size:0.85rem;">4</div>
+            <div class="step-content">
+              <h4>50,000개 단어 각각의 확률 출력</h4>
+              <p>가장 높은 확률의 단어 = 다음 토큰</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 5. 학습 과정 ====== -->
+  <section id="training">
+    <div class="section-title"><span class="icon">🏋️</span> 학습 — 틀리면 수정, 반복</div>
+    <p class="section-sub">AI 학습은 시험을 무한 반복하며 오답을 고치는 과정입니다.</p>
+
+    <div class="analogy" style="margin-bottom:24px;">
+      <div class="analogy-label">🎯 수능 공부 비유</div>
+      <strong>학생(AI)이 모의고사(다음 단어 예측)를 보고 채점지(정답)와 비교합니다.</strong><br>
+      "파이썬의 장점은 ___" → AI 예측: "빠른" → 정답: "가독성"<br>
+      → 틀렸으니 "가독성"의 가중치를 높이는 방향으로 수정<br>
+      → 이걸 <strong style="color:var(--accent2);">수천억 번</strong> 반복 → 지능이 생김
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div class="steps">
+          <div class="step card">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>예측 (Forward)</h4>
+              <p>입력 → 신경망 통과 → 다음 단어 확률 출력.<br>"오늘 날씨가" → ["맑다" 40%, "춥다" 35%, ...]</p>
+            </div>
+          </div>
+          <div class="step card">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>채점 (Loss 계산)</h4>
+              <p>정답과 비교해 "얼마나 틀렸나" 점수 계산.<br>정답이 "맑다"인데 "춥다"를 높게 예측했다면 높은 오류</p>
+            </div>
+          </div>
+          <div class="step card">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>책임 추적 (Backward)</h4>
+              <p>오류가 어느 가중치 때문인지 역방향으로 추적.<br>"춥다를 높인 건 3번 레이어 542번 가중치 때문이야"</p>
+            </div>
+          </div>
+          <div class="step card">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <h4>수정 (Gradient Descent)</h4>
+              <p>책임 있는 가중치를 아주 조금 조정.<br>조정량은 0.0001처럼 미세하게. 이걸 수조 번 반복.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div class="chart-wrap">
+          <h4 style="color:var(--accent2); margin-bottom:16px; text-align:center;">학습 단계별 소요 비용</h4>
+          <canvas id="costChart" height="180"></canvas>
+        </div>
+        <div class="highlight yellow">
+          <strong>역전파(Backpropagation)란?</strong><br>
+          <span style="font-size:0.88rem;">오류의 "책임"을 뒤로 전파하는 알고리즘. 마치 팀 프로젝트에서 실패 원인을 각 팀원에게 배분하는 것처럼, 각 가중치가 오류에 얼마나 기여했는지 계산합니다. 수학적으로는 Chain Rule(연쇄 법칙)을 적용합니다.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 6. 어텐션 ====== -->
+  <section id="attention">
+    <div class="section-title"><span class="icon">🔦</span> 어텐션 — 형광펜으로 중요한 곳에 집중</div>
+    <p class="section-sub">2017년 구글이 발명한 어텐션 메커니즘. 현대 AI의 핵심입니다.</p>
+
+    <div class="analogy" style="margin-bottom:24px;">
+      <div class="analogy-label">🖊️ 형광펜 비유</div>
+      <strong>"그 고양이가 생선을 먹었다. <span style="color:var(--accent3);">그것</span>은 배가 불렀다."</strong><br><br>
+      "그것"이 무엇인지 파악하려면 앞 문장을 전부 다시 읽으며 "고양이"에 형광펜을 칩니다.<br>
+      어텐션 메커니즘이 하는 일이 바로 이겁니다 — <strong style="color:var(--accent2);">어떤 단어에 집중할지 확률로 계산</strong>.
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px;">
+      <div class="card">
+        <h4 style="color:var(--accent2); margin-bottom:16px;">"그것"을 처리할 때 집중도</h4>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div class="prob-row">
+            <span class="prob-word">그</span>
+            <div class="prob-bar-bg"><div class="prob-bar" style="width:6%; background:rgba(99,102,241,0.4);">6%</div></div>
+          </div>
+          <div class="prob-row">
+            <span class="prob-word" style="color:var(--accent3); font-weight:700;">고양이가 🐱</span>
+            <div class="prob-bar-bg"><div class="prob-bar" style="width:72%; background:linear-gradient(90deg,var(--accent),var(--accent2));">72%</div></div>
+          </div>
+          <div class="prob-row">
+            <span class="prob-word">생선을</span>
+            <div class="prob-bar-bg"><div class="prob-bar" style="width:8%; background:rgba(99,102,241,0.4);">8%</div></div>
+          </div>
+          <div class="prob-row">
+            <span class="prob-word">먹었다</span>
+            <div class="prob-bar-bg"><div class="prob-bar" style="width:10%; background:rgba(99,102,241,0.4);">10%</div></div>
+          </div>
+          <div class="prob-row">
+            <span class="prob-word">그것</span>
+            <div class="prob-bar-bg"><div class="prob-bar" style="width:4%; background:rgba(99,102,241,0.4);">4%</div></div>
+          </div>
+        </div>
+        <div style="margin-top:12px; color:var(--accent4); font-size:0.85rem;">
+          → "그것" = "고양이" (72% 집중) 로 올바르게 파악
+        </div>
+      </div>
+
+      <div class="card">
+        <h4 style="color:var(--accent3); margin-bottom:16px;">어텐션이 필요한 이유</h4>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div style="background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.3); border-radius:8px; padding:14px;">
+            <div style="color:#fda4af; font-size:0.82rem; font-weight:700; margin-bottom:4px;">❌ 어텐션 없이</div>
+            <p style="color:var(--muted); font-size:0.85rem;">"나는 어제 서울에서 맛있는 음식을 먹었다" <br>→ "먹었다"와 "나는"의 연결이 끊어짐 (문장이 길수록 심각)</p>
+          </div>
+          <div style="background:rgba(16,185,129,0.08); border:1px solid var(--accent4); border-radius:8px; padding:14px;">
+            <div style="color:var(--accent4); font-size:0.82rem; font-weight:700; margin-bottom:4px;">✅ 어텐션 있으면</div>
+            <p style="color:var(--muted); font-size:0.85rem;">모든 단어가 다른 모든 단어를 직접 참조 가능.<br>아무리 긴 문장도 관계 파악 가능.</p>
+          </div>
+          <div class="analogy" style="margin:0;">
+            <div class="analogy-label">🗃️ 데이터베이스 비유</div>
+            <span style="font-size:0.85rem;">어텐션 = 퍼지 검색(Fuzzy Search)<br>
+            Query: "그것이 가리키는 것은?"<br>
+            Key: 각 단어의 "나는 무엇인가"<br>
+            Value: 각 단어의 실제 내용<br>
+            → 가장 관련 높은 Value를 가중 합산</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight">
+      <strong>멀티헤드 어텐션이란?</strong> 형광펜을 여러 색으로 동시에 칩니다. 파란 형광펜은 문법 관계, 빨간 형광펜은 의미 관계, 초록 형광펜은 지시어 관계를 각각 담당합니다. GPT-4는 이런 형광펜을 동시에 128개 사용합니다.
+    </div>
+  </section>
+
+  <!-- ====== 7. 생성 과정 ====== -->
+  <section id="generate">
+    <div class="section-title"><span class="icon">💬</span> 생성 — 토큰 하나씩 쌓아가기</div>
+    <p class="section-sub">AI는 답변 전체를 한 번에 만들지 않습니다. 토큰 하나 선택, 또 선택, 반복입니다.</p>
+
+    <div class="grid-2" style="margin-bottom:24px;">
+      <div class="card">
+        <h4 style="color:var(--accent3); margin-bottom:16px;">생성 과정 시뮬레이션</h4>
+        <div style="font-size:0.88rem; color:var(--muted); margin-bottom:12px;">입력: "파이썬의 장점은"</div>
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:0.85rem;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--muted); width:20px;">1.</span>
+            <div class="token-demo" style="padding:8px; flex:1;">
+              <span class="token t1">파이썬의</span><span class="token t2">장점은</span>
+              <span style="color:var(--muted); margin-left:4px;">→ ?</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--accent4); width:20px;">→</span>
+            <div class="token-demo" style="padding:8px; flex:1;">
+              <span class="token t1">파이썬의</span><span class="token t2">장점은</span><span class="token t4"> 가독성</span>
+              <span style="color:var(--muted); margin-left:4px;">→ ?</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--accent4); width:20px;">→</span>
+            <div class="token-demo" style="padding:8px; flex:1;">
+              <span class="token t1">파이썬의</span><span class="token t2">장점은</span><span class="token t4"> 가독성</span><span class="token t3">이</span>
+              <span style="color:var(--muted); margin-left:4px;">→ ?</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--accent4); width:20px;">→</span>
+            <div class="token-demo" style="padding:8px; flex:1;">
+              <span class="token t1">파이썬의</span><span class="token t2">장점은</span><span class="token t4"> 가독성</span><span class="token t3">이</span><span class="token t5"> 높습니다</span><span class="token t1">.</span>
+              <span style="color:var(--accent4); margin-left:4px; font-size:0.78rem;">[종료]</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border); color:var(--muted); font-size:0.83rem;">
+          글자가 스트리밍되듯 나오는 건, 실제로 토큰 하나씩 생성 후 바로 전송하기 때문입니다.
+        </div>
+      </div>
+
+      <div class="card">
+        <h4 style="color:var(--accent3); margin-bottom:16px;">Temperature — 창의성 조절 다이얼</h4>
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div style="background:rgba(99,102,241,0.08); border:1px solid var(--accent); border-radius:10px; padding:14px;">
+            <div style="color:var(--accent); font-weight:700; margin-bottom:6px;">🎯 Temperature = 0 (차가움)</div>
+            <p style="color:var(--muted); font-size:0.85rem;">항상 확률 1위 토큰 선택. 결정적·예측 가능.<br><strong style="color:var(--text);">코딩, 사실 질문에 적합</strong></p>
+            <div style="display:flex; gap:4px; margin-top:8px; flex-wrap:wrap;">
+              <div class="token t1" style="font-size:0.75rem;">가독성 32% ★</div>
+              <div class="token" style="font-size:0.75rem; opacity:0.4; background:rgba(255,255,255,0.05);">쉬운 22%</div>
+              <div class="token" style="font-size:0.75rem; opacity:0.2; background:rgba(255,255,255,0.05);">빠른 16%</div>
+            </div>
+          </div>
+          <div style="background:rgba(245,158,11,0.08); border:1px solid var(--accent3); border-radius:10px; padding:14px;">
+            <div style="color:var(--accent3); font-weight:700; margin-bottom:6px;">🎲 Temperature = 1 (따뜻함)</div>
+            <p style="color:var(--muted); font-size:0.85rem;">확률에 비례해 랜덤 선택. 자연스럽고 다양함.<br><strong style="color:var(--text);">일반 대화, 글쓰기에 적합</strong></p>
+            <div style="display:flex; gap:4px; margin-top:8px; flex-wrap:wrap;">
+              <div class="token t3" style="font-size:0.75rem;">가독성 32%</div>
+              <div class="token t2" style="font-size:0.75rem;">쉬운 22%</div>
+              <div class="token t4" style="font-size:0.75rem;">빠른 16%</div>
+              <div style="font-size:0.75rem; color:var(--muted); padding:5px;">모두 후보</div>
+            </div>
+          </div>
+          <div style="background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.4); border-radius:10px; padding:14px;">
+            <div style="color:#fda4af; font-weight:700; margin-bottom:6px;">🔥 Temperature = 2 (뜨거움)</div>
+            <p style="color:var(--muted); font-size:0.85rem;">확률 차이를 무시하고 매우 랜덤. 엉뚱하지만 창의적.<br><strong style="color:var(--text);">브레인스토밍에만 활용</strong></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <h4 style="color:var(--accent2); margin-bottom:16px; text-align:center;">LLM 발전 역사 — 파라미터 수 폭발적 증가</h4>
+      <canvas id="paramChart" height="100"></canvas>
+    </div>
+  </section>
+
+  <!-- ====== 요약 ====== -->
+  <section>
+    <div class="section-title"><span class="icon">📌</span> 전체 흐름 한눈에</div>
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center; font-size:0.9rem;">
+        <div style="text-align:center; padding:12px 16px; background:rgba(99,102,241,0.1); border:1px solid var(--accent); border-radius:10px; min-width:100px;">
+          <div style="font-size:1.5rem;">📝</div>
+          <div style="font-weight:700; margin:4px 0;">입력 텍스트</div>
+          <div style="color:var(--muted); font-size:0.78rem;">"파이썬 장점은"</div>
+        </div>
+        <div style="font-size:1.5rem; color:var(--muted);">→</div>
+        <div style="text-align:center; padding:12px 16px; background:rgba(34,211,238,0.08); border:1px solid var(--accent2); border-radius:10px; min-width:100px;">
+          <div style="font-size:1.5rem;">🔤</div>
+          <div style="font-weight:700; margin:4px 0;">토큰화</div>
+          <div style="color:var(--muted); font-size:0.78rem;">[592, 214, ...]</div>
+        </div>
+        <div style="font-size:1.5rem; color:var(--muted);">→</div>
+        <div style="text-align:center; padding:12px 16px; background:rgba(245,158,11,0.08); border:1px solid var(--accent3); border-radius:10px; min-width:100px;">
+          <div style="font-size:1.5rem;">🔢</div>
+          <div style="font-weight:700; margin:4px 0;">임베딩</div>
+          <div style="color:var(--muted); font-size:0.78rem;">단어 → 숫자벡터</div>
+        </div>
+        <div style="font-size:1.5rem; color:var(--muted);">→</div>
+        <div style="text-align:center; padding:12px 16px; background:rgba(99,102,241,0.1); border:1px solid var(--accent); border-radius:10px; min-width:120px;">
+          <div style="font-size:1.5rem;">⚙️</div>
+          <div style="font-weight:700; margin:4px 0;">Transformer ×N</div>
+          <div style="color:var(--muted); font-size:0.78rem;">어텐션 + 가중치곱</div>
+        </div>
+        <div style="font-size:1.5rem; color:var(--muted);">→</div>
+        <div style="text-align:center; padding:12px 16px; background:rgba(16,185,129,0.08); border:1px solid var(--accent4); border-radius:10px; min-width:100px;">
+          <div style="font-size:1.5rem;">🎲</div>
+          <div style="font-weight:700; margin:4px 0;">확률 분포</div>
+          <div style="color:var(--muted); font-size:0.78rem;">다음 토큰 선택</div>
+        </div>
+        <div style="font-size:1.5rem; color:var(--muted);">→</div>
+        <div style="text-align:center; padding:12px 16px; background:rgba(16,185,129,0.1); border:1px solid var(--accent4); border-radius:10px; min-width:100px;">
+          <div style="font-size:1.5rem;">✍️</div>
+          <div style="font-weight:700; margin:4px 0;">출력</div>
+          <div style="color:var(--muted); font-size:0.78rem;">"가독성이 높습니다"</div>
+        </div>
+      </div>
+
+      <div class="grid-4" style="margin-top:24px;">
+        <div style="text-align:center; padding:16px; background:rgba(255,255,255,0.02); border-radius:10px;">
+          <div style="font-size:1.5rem; margin-bottom:6px;">🧠</div>
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:4px;">AI = 숫자 계산기</div>
+          <div style="color:var(--muted); font-size:0.82rem;">글자가 아닌 숫자만 처리. 의미는 패턴에서 나옴.</div>
+        </div>
+        <div style="text-align:center; padding:16px; background:rgba(255,255,255,0.02); border-radius:10px;">
+          <div style="font-size:1.5rem; margin-bottom:6px;">🔦</div>
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:4px;">어텐션 = 형광펜</div>
+          <div style="color:var(--muted); font-size:0.82rem;">관련 있는 단어에 가중치. 문맥 이해의 비결.</div>
+        </div>
+        <div style="text-align:center; padding:16px; background:rgba(255,255,255,0.02); border-radius:10px;">
+          <div style="font-size:1.5rem; margin-bottom:6px;">📚</div>
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:4px;">학습 = 오답 수정</div>
+          <div style="color:var(--muted); font-size:0.82rem;">틀리면 가중치 조정. 수조 번 반복이 지능.</div>
+        </div>
+        <div style="text-align:center; padding:16px; background:rgba(255,255,255,0.02); border-radius:10px;">
+          <div style="font-size:1.5rem; margin-bottom:6px;">🎲</div>
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:4px;">생성 = 자동완성</div>
+          <div style="color:var(--muted); font-size:0.82rem;">토큰 하나씩 선택. 확률적 샘플링.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>LLM 동작 원리 (쉬운 버전) | 2026 | 비유와 시각화로 이해하는 AI</footer>
+
+<script>
+const darkOpts = (extra={}) => ({
+  responsive: true,
+  plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } }, ...extra.plugins },
+  scales: {
+    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+    ...(extra.scales || {})
+  }
+});
+
+// 학습 비용 차트
+new Chart(document.getElementById('costChart').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: ['사전학습\n(Pre-training)', '지도 미세조정\n(SFT)', 'RLHF\n(인간 피드백)', '개인 파인튜닝\n(LoRA 등)'],
+    datasets: [{
+      label: '상대적 비용',
+      data: [10000, 1000, 500, 1],
+      backgroundColor: ['rgba(244,63,94,0.7)', 'rgba(245,158,11,0.7)', 'rgba(99,102,241,0.7)', 'rgba(16,185,129,0.7)'],
+      borderRadius: 8
+    }]
+  },
+  options: {
+    ...darkOpts(),
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ctx.parsed.y === 1 ? ' 상대적 비용: 1 (수십만원)' : ` 상대적 비용: ${ctx.parsed.y.toLocaleString()}배` } }
+    },
+    scales: {
+      x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+      y: { type: 'logarithmic', ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+    }
+  }
+});
+
+// 파라미터 증가 차트
+new Chart(document.getElementById('paramChart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: ['GPT-1\n(2018)', 'GPT-2\n(2019)', 'GPT-3\n(2020)', 'PaLM\n(2022)', 'GPT-4\n(2023)', 'LLaMA3\n(2024)', 'Claude3\n(2024)', '미래?'],
+    datasets: [{
+      label: '파라미터 수 (억 개)',
+      data: [1.2, 15, 1750, 5400, 17000, 700, 수치불명_추정: null, null],
+      data: [1.2, 15, 1750, 5400, null, 700, 2000, 50000],
+      borderColor: '#6366f1',
+      backgroundColor: 'rgba(99,102,241,0.1)',
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: ['#6366f1','#22d3ee','#f59e0b','#10b981','#f43f5e','#6366f1','#22d3ee','rgba(99,102,241,0.3)'],
+      pointRadius: 7
+    }]
+  },
+  options: {
+    ...darkOpts(),
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ctx.parsed.y ? ` ${ctx.parsed.y.toLocaleString()}억 파라미터` : ' (비공개)' } }
+    },
+    scales: {
+      x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+      y: { type: 'logarithmic', ticks: { color: '#94a3b8', callback: v => v >= 1000 ? (v/1000)+'천억' : v+'억' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+    }
+  }
+});
+</script>
+</body>
+</html>

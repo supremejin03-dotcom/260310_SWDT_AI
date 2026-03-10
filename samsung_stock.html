@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>삼성전자 주가 — 과거 · 현재 · 미래</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --card: #1a2235;
+    --border: #2d3a52;
+    --accent: #6366f1;
+    --accent2: #22d3ee;
+    --accent3: #f59e0b;
+    --accent4: #10b981;
+    --accent5: #f43f5e;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; line-height: 1.7; }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,14,26,0.95); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center;
+  }
+  nav a { color: var(--muted); text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
+  nav a:hover { color: var(--accent2); }
+  nav .logo { color: var(--accent); font-weight: 700; font-size: 1rem; margin-right: 16px; }
+
+  .hero {
+    background: linear-gradient(135deg, #0a0e1a 0%, #1a1040 50%, #0a1628 100%);
+    padding: 80px 24px; text-align: center; position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.15) 0%, transparent 70%);
+  }
+  .hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; position: relative;
+    background: linear-gradient(90deg, #6366f1, #22d3ee, #f59e0b);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { margin-top: 16px; font-size: 1.1rem; color: var(--muted); max-width: 640px; margin-inline: auto; position: relative; }
+  .hero-tags { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 24px; position: relative; }
+  .tag { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4); color: var(--accent2);
+    padding: 4px 14px; border-radius: 20px; font-size: 0.8rem; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 60px 24px; }
+  section { margin-bottom: 80px; }
+  .section-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+  .section-title span.icon { font-size: 1.5rem; }
+  .section-sub { color: var(--muted); margin-bottom: 32px; font-size: 1rem; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+
+  .timeline { position: relative; padding-left: 40px; }
+  .timeline::before { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent2)); }
+  .timeline-item { position: relative; margin-bottom: 36px; }
+  .timeline-item::before { content: ''; position: absolute; left: -34px; top: 6px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); border: 3px solid var(--bg); box-shadow: 0 0 12px rgba(99,102,241,0.6); }
+  .timeline-item.up::before { background: var(--accent4); box-shadow: 0 0 12px rgba(16,185,129,0.6); }
+  .timeline-item.down::before { background: var(--accent5); box-shadow: 0 0 12px rgba(244,63,94,0.6); }
+  .timeline-year { color: var(--accent3); font-weight: 700; font-size: 0.85rem; letter-spacing: 1px; }
+  .timeline-title { font-size: 1.1rem; font-weight: 700; margin: 4px 0; }
+  .timeline-desc { color: var(--muted); font-size: 0.9rem; }
+
+  .highlight { background: rgba(99,102,241,0.08); border-left: 4px solid var(--accent);
+    border-radius: 0 12px 12px 0; padding: 20px 24px; margin: 20px 0; }
+  .highlight.green { background: rgba(16,185,129,0.08); border-color: var(--accent4); }
+  .highlight.yellow { background: rgba(245,158,11,0.08); border-color: var(--accent3); }
+  .highlight.cyan { background: rgba(34,211,238,0.08); border-color: var(--accent2); }
+  .highlight.red { background: rgba(244,63,94,0.08); border-color: var(--accent5); }
+
+  .chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; text-align: center; }
+  .stat-num { font-size: 2.2rem; font-weight: 800; background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-num.green { background: linear-gradient(90deg, var(--accent4), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-num.red { background: linear-gradient(90deg, var(--accent5), var(--accent3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-label { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+  .stat-sub { font-size: 0.78rem; color: var(--accent4); margin-top: 4px; }
+
+  .pill { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+  .pill-purple { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+  .pill-cyan { background: rgba(34,211,238,0.15); color: #67e8f9; }
+  .pill-yellow { background: rgba(245,158,11,0.15); color: #fcd34d; }
+  .pill-green { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+  .pill-red { background: rgba(244,63,94,0.15); color: #fda4af; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--surface); color: var(--accent2); font-size: 0.82rem; text-transform: uppercase;
+    letter-spacing: 0.5px; padding: 14px 16px; text-align: left; }
+  td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .price-badge { font-weight: 700; font-size: 1rem; }
+  .up { color: var(--accent5); }
+  .down { color: var(--accent2); }
+
+  .risk-bar-wrap { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .risk-bar-bg { flex: 1; height: 8px; background: rgba(255,255,255,0.07); border-radius: 4px; overflow: hidden; }
+  .risk-bar { height: 100%; border-radius: 4px; }
+
+  footer { text-align: center; padding: 40px 24px; color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--border); }
+
+  @media (max-width: 600px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">📈 삼성전자 주가 분석</span>
+  <a href="#now">현재</a>
+  <a href="#history">과거</a>
+  <a href="#chart">주가 차트</a>
+  <a href="#driver">핵심 동인</a>
+  <a href="#future">미래 전망</a>
+  <a href="#risk">리스크</a>
+</nav>
+
+<div class="hero">
+  <h1>삼성전자 주가<br>과거 · 현재 · 미래</h1>
+  <p>2018년 액면분할부터 2026년 HBM4 슈퍼사이클까지.<br>삼성전자 주가의 흐름과 앞으로의 방향을 데이터로 분석합니다.</p>
+  <div class="hero-tags">
+    <span class="tag">005930 KRX</span>
+    <span class="tag">현재가 173,500원</span>
+    <span class="tag">신고가 223,000원 (2026.02)</span>
+    <span class="tag">목표가 최대 270,000원</span>
+    <span class="tag">HBM4 슈퍼사이클</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ====== 현재 스냅샷 ====== -->
+  <section id="now">
+    <div class="section-title"><span class="icon">📊</span> 현재 스냅샷 (2026년 3월)</div>
+    <p class="section-sub">지금 삼성전자는 어디에 있나? 핵심 수치 한눈에.</p>
+
+    <div class="grid-4" style="margin-bottom:24px;">
+      <div class="stat-card">
+        <div class="stat-num">173,500</div>
+        <div class="stat-label">현재 주가 (원)</div>
+        <div class="stat-sub">2026.03.09 기준</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num green">223,000</div>
+        <div class="stat-label">52주 신고가 (원)</div>
+        <div class="stat-sub">2026년 2월 27일</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num red">52,500</div>
+        <div class="stat-label">52주 최저가 (원)</div>
+        <div class="stat-sub">2024년 하반기</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">266,000</div>
+        <div class="stat-label">증권사 평균 목표가 (원)</div>
+        <div class="stat-sub">33인 전원 매수 의견</div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <div style="color:var(--accent3); font-size:0.8rem; margin-bottom:6px; font-weight:700;">시가총액</div>
+        <div style="font-size:1.4rem; font-weight:800; color:var(--text);">약 700조원+</div>
+        <div style="color:var(--muted); font-size:0.85rem; margin-top:6px;">코스피 1위 · 세계 반도체 시총 상위권</div>
+      </div>
+      <div class="card">
+        <div style="color:var(--accent3); font-size:0.8rem; margin-bottom:6px; font-weight:700;">2025년 실적</div>
+        <div style="font-size:1.4rem; font-weight:800; color:var(--text);">매출 333조 / 영업이익 44조</div>
+        <div style="color:var(--muted); font-size:0.85rem; margin-top:6px;">매출 +10.9%, 영업이익 +31.7% YoY</div>
+      </div>
+      <div class="card">
+        <div style="color:var(--accent3); font-size:0.8rem; margin-bottom:6px; font-weight:700;">애널리스트 의견</div>
+        <div style="font-size:1.4rem; font-weight:800; color:var(--accent4);">전원 매수 (33/33)</div>
+        <div style="color:var(--muted); font-size:0.85rem; margin-top:6px;">현재가 대비 목표가 +53% 여력</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 과거 역사 ====== -->
+  <section id="history">
+    <div class="section-title"><span class="icon">📜</span> 주가 역사 — 2018~2024</div>
+    <p class="section-sub">액면분할로 재탄생한 2018년부터 AI 반도체 경쟁에서 흔들린 2024년까지.</p>
+
+    <div class="timeline">
+      <div class="timeline-item up">
+        <div class="timeline-year">2018년 5월</div>
+        <div class="timeline-title">50:1 액면분할 — 국민주로 재탄생</div>
+        <div class="timeline-desc">분할 전 260만원 → 분할 후 약 5만 2천원. 소액 투자자 접근성 확대. 분할 직후 주가 50,000~56,000원 안착. "모두의 삼성전자" 시대 개막.</div>
+      </div>
+      <div class="timeline-item up">
+        <div class="timeline-year">2020년 하반기~2021년 초</div>
+        <div class="timeline-title">코로나 반도체 특수 — 역대 최고점 (당시)</div>
+        <div class="timeline-desc">코로나로 인한 비대면·재택 수요 폭증 → D램·NAND 수요 급등. 2021년 1월 96,800원 터치. 외국인·기관 동시 매수. "10만전자" 기대감 최고조.</div>
+      </div>
+      <div class="timeline-item down">
+        <div class="timeline-year">2022~2023년</div>
+        <div class="timeline-title">반도체 다운사이클 — 인내의 시간</div>
+        <div class="timeline-desc">글로벌 금리 인상 + 메모리 재고 과잉 + 수요 둔화. 주가 55,000~80,000원 박스권. 삼성전자 감산 결정으로 반등 시도. 2023년 HBM 개발 경쟁에서 SK하이닉스에 뒤처지기 시작.</div>
+      </div>
+      <div class="timeline-item down">
+        <div class="timeline-year">2024년 하반기</div>
+        <div class="timeline-title">HBM3E 납품 실패 — 52,500원 붕괴 위기</div>
+        <div class="timeline-desc">엔비디아 HBM3E 퀄 테스트 통과 지연. AI 반도체 사이클에서 SK하이닉스에 밀림. 외국인 대규모 매도. 52,500원까지 추락 — 2년 만의 최저점. "삼성전자도 안전하지 않다" 공포감.</div>
+      </div>
+      <div class="timeline-item up">
+        <div class="timeline-year">2025~2026년 초</div>
+        <div class="timeline-title">대반전 — HBM4 세계 최초 양산 성공</div>
+        <div class="timeline-desc">2025년 회복 시작. 2026년 2월 HBM4 세계 최초 양산 출하 성공. 엔비디아 Vera Rubin 핵심 공급사 낙점. 2026년 2월 27일 223,000원 신고가 경신. 삼성전자의 화려한 귀환.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 주가 차트 ====== -->
+  <section id="chart">
+    <div class="section-title"><span class="icon">📉</span> 연도별 주가 추이</div>
+    <p class="section-sub">액면분할 후 기준 (2018년~2026년). 연간 고점·저점·종가 기준.</p>
+
+    <div class="chart-wrap" style="margin-bottom:24px;">
+      <h4 style="color:var(--accent2); margin-bottom:16px;">삼성전자 주가 추이 (원, 2018~2026)</h4>
+      <canvas id="priceChart" height="110"></canvas>
+    </div>
+
+    <div class="grid-2">
+      <div class="chart-wrap">
+        <h4 style="color:var(--accent2); margin-bottom:16px;">증권사별 목표주가 (원)</h4>
+        <canvas id="targetChart" height="200"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <h4 style="color:var(--accent2); margin-bottom:16px;">연간 영업이익 추이 및 전망 (조원)</h4>
+        <canvas id="profitChart" height="200"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 핵심 상승 동인 ====== -->
+  <section id="driver">
+    <div class="section-title"><span class="icon">🚀</span> 핵심 상승 동인</div>
+    <p class="section-sub">2026년 삼성전자 주가를 이끄는 3가지 메가 트렌드.</p>
+
+    <div class="grid-3" style="margin-bottom:24px;">
+      <div class="card">
+        <div style="font-size:2rem; margin-bottom:12px;">🧠</div>
+        <div style="color:var(--accent3); font-size:0.8rem; font-weight:700; margin-bottom:8px;">DRIVER 1</div>
+        <h4 style="margin-bottom:10px;">HBM4 세계 최초 양산</h4>
+        <p style="color:var(--muted); font-size:0.87rem;">6세대 HBM4 양산 성공으로 AI 반도체 핵심 부품 독점 공급. 엔비디아 Vera Rubin 아키텍처 핵심 파트너. HBM 점유율 16% → 35% 도약 전망.</p>
+        <div style="margin-top:12px;">
+          <span class="pill pill-cyan">HBM4</span>
+          <span class="pill pill-purple">엔비디아 공급</span>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:2rem; margin-bottom:12px;">📦</div>
+        <div style="color:var(--accent3); font-size:0.8rem; font-weight:700; margin-bottom:8px;">DRIVER 2</div>
+        <h4 style="margin-bottom:10px;">메모리 슈퍼사이클</h4>
+        <p style="color:var(--muted); font-size:0.87rem;">HBM 폭발적 수요 + 범용 D램 공급 부족 동시 발생. NAND 가격 추가 인상 예상. AI 데이터센터 투자 지속 → 메모리 수요 구조적 증가. 2026년 최대 수혜주.</p>
+        <div style="margin-top:12px;">
+          <span class="pill pill-green">D램 공급부족</span>
+          <span class="pill pill-yellow">NAND 가격상승</span>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:2rem; margin-bottom:12px;">🌍</div>
+        <div style="color:var(--accent3); font-size:0.8rem; font-weight:700; margin-bottom:8px;">DRIVER 3</div>
+        <h4 style="margin-bottom:10px;">세계 1위 반도체 복귀</h4>
+        <p style="color:var(--muted); font-size:0.87francès;">2026년 매출 2,000억 달러 달성 시 엔비디아 제치고 세계 최대 반도체 기업 지위 회복 전망. 파운드리(3nm GAA) + 메모리 + 시스템 LSI 동시 성장.</p>
+        <div style="margin-top:12px;">
+          <span class="pill pill-purple">매출 2,000억$ 전망</span>
+          <span class="pill pill-cyan">파운드리 3nm</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="chart-wrap">
+        <h4 style="color:var(--accent2); margin-bottom:16px;">HBM 시장 점유율 전망 (2026년)</h4>
+        <canvas id="hbmChart" height="220"></canvas>
+      </div>
+      <div class="card">
+        <h4 style="color:var(--accent2); margin-bottom:16px;">사업부별 2026년 실적 전망</h4>
+        <table>
+          <thead><tr><th>사업부</th><th>매출 전망</th><th>핵심 이슈</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>DS (반도체)</strong></td>
+              <td style="color:var(--accent4); font-weight:700;">~120조원</td>
+              <td><span class="pill pill-green">HBM4 · D램</span></td>
+            </tr>
+            <tr>
+              <td><strong>MX (스마트폰)</strong></td>
+              <td style="color:var(--accent3); font-weight:700;">~110조원</td>
+              <td><span class="pill pill-cyan">갤럭시 AI</span></td>
+            </tr>
+            <tr>
+              <td><strong>VD/가전</strong></td>
+              <td style="color:var(--muted);">~60조원</td>
+              <td><span class="pill pill-purple">AI TV</span></td>
+            </tr>
+            <tr>
+              <td><strong>파운드리</strong></td>
+              <td style="color:var(--accent3); font-weight:700;">~35조원</td>
+              <td><span class="pill pill-yellow">3nm GAA</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="highlight cyan" style="margin-top:16px;">
+          <strong>KB증권 전망:</strong> 2026년 영업이익 82조 2천억원 — 전년 대비 108% 증가, 사상 최대치 경신.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 미래 전망 ====== -->
+  <section id="future">
+    <div class="section-title"><span class="icon">🔮</span> 미래 주가 전망</div>
+    <p class="section-sub">증권사 목표주가와 시나리오별 분석. (투자 권유가 아닌 정보 제공 목적)</p>
+
+    <div class="grid-2" style="margin-bottom:24px;">
+      <div class="card">
+        <h4 style="color:var(--accent2); margin-bottom:16px;">증권사별 목표주가 & 의견</h4>
+        <table>
+          <thead><tr><th>증권사</th><th>목표주가</th><th>의견</th><th>상승여력*</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>SK증권</td>
+              <td style="font-weight:700;">260,000원</td>
+              <td><span class="pill pill-green">매수</span></td>
+              <td style="color:var(--accent4);">+50%</td>
+            </tr>
+            <tr>
+              <td>한국투자증권</td>
+              <td style="font-weight:700;">270,000원</td>
+              <td><span class="pill pill-green">매수</span></td>
+              <td style="color:var(--accent4);">+56%</td>
+            </tr>
+            <tr>
+              <td>대신증권</td>
+              <td style="font-weight:700;">270,000원</td>
+              <td><span class="pill pill-green">매수</span></td>
+              <td style="color:var(--accent4);">+56%</td>
+            </tr>
+            <tr>
+              <td>KB증권</td>
+              <td style="font-weight:700;">260,000원</td>
+              <td><span class="pill pill-green">매수</span></td>
+              <td style="color:var(--accent4);">+50%</td>
+            </tr>
+            <tr>
+              <td>하나증권</td>
+              <td style="font-weight:700;">260,000원</td>
+              <td><span class="pill pill-green">매수</span></td>
+              <td style="color:var(--accent4);">+50%</td>
+            </tr>
+            <tr style="background:rgba(99,102,241,0.08);">
+              <td><strong>평균 (33사)</strong></td>
+              <td style="font-weight:800; color:var(--accent);">~266,000원</td>
+              <td><span class="pill pill-green">전원 매수</span></td>
+              <td style="color:var(--accent4); font-weight:700;">+53%</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="color:var(--muted); font-size:0.78rem; margin-top:10px;">*현재가 173,500원 기준</p>
+      </div>
+      <div class="card">
+        <h4 style="color:var(--accent2); margin-bottom:16px;">시나리오별 주가 전망</h4>
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div style="background:rgba(16,185,129,0.08); border:1px solid var(--accent4); border-radius:10px; padding:16px;">
+            <div style="color:var(--accent4); font-weight:700; font-size:0.85rem; margin-bottom:6px;">🚀 강세 시나리오</div>
+            <div style="font-size:1.5rem; font-weight:800; color:var(--accent4);">280,000~300,000원</div>
+            <div style="color:var(--muted); font-size:0.83rem; margin-top:4px;">HBM4 점유율 35%+ 달성 · 엔비디아 독점공급 · D램 슈퍼사이클 동시 · 영업이익 100조+ · 외국인 적극 유입</div>
+          </div>
+          <div style="background:rgba(99,102,241,0.08); border:1px solid var(--accent); border-radius:10px; padding:16px;">
+            <div style="color:var(--accent); font-weight:700; font-size:0.85rem; margin-bottom:6px;">📊 기본 시나리오</div>
+            <div style="font-size:1.5rem; font-weight:800; color:var(--accent);">240,000~270,000원</div>
+            <div style="color:var(--muted); font-size:0.83rem; margin-top:4px;">HBM4 안정 공급 · 메모리 업사이클 지속 · 영업이익 80조원대 · 증권사 평균 목표가 수렴</div>
+          </div>
+          <div style="background:rgba(245,158,11,0.08); border:1px solid var(--accent3); border-radius:10px; padding:16px;">
+            <div style="color:var(--accent3); font-weight:700; font-size:0.85rem; margin-bottom:6px;">⚠️ 약세 시나리오</div>
+            <div style="font-size:1.5rem; font-weight:800; color:var(--accent3);">140,000~170,000원</div>
+            <div style="color:var(--muted); font-size:0.83rem; margin-top:4px;">HBM4 수율 문제 재발 · 미중 반도체 규제 강화 · 메모리 가격 예상보다 덜 오름 · 거시경제 악화</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight green">
+      <strong>장기 방향 (2027~2028년):</strong> HBM5 개발 · 3nm 이하 파운드리 안착 · 자율주행·로봇용 메모리 신시장 · GAA 기술 독자 확보 시 주가 30만원 이상 중장기 시나리오도 제시 중. 단, 기술 실현 여부와 거시 환경에 크게 좌우됨.
+    </div>
+  </section>
+
+  <!-- ====== 리스크 ====== -->
+  <section id="risk">
+    <div class="section-title"><span class="icon">⚠️</span> 주요 리스크 요인</div>
+    <p class="section-sub">상승 기대만큼 리스크도 알아야 합니다.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4 style="color:var(--accent5); margin-bottom:16px;">핵심 리스크</h4>
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="font-size:0.88rem;">🇺🇸 미·중 반도체 규제 심화</span>
+              <span style="font-size:0.78rem; color:var(--accent5);">높음</span>
+            </div>
+            <div class="risk-bar-bg"><div class="risk-bar" style="width:85%; background:linear-gradient(90deg, var(--accent5), var(--accent3));"></div></div>
+            <div style="color:var(--muted); font-size:0.8rem; margin-top:3px;">중국 수출 규제 강화 시 DS 부문 타격. 화웨이 공급 제한 지속.</div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="font-size:0.88rem;">🏭 HBM4 수율·납기 리스크</span>
+              <span style="font-size:0.78rem; color:var(--accent3);">중간</span>
+            </div>
+            <div class="risk-bar-bg"><div class="risk-bar" style="width:60%; background:linear-gradient(90deg, var(--accent3), var(--accent));"></div></div>
+            <div style="color:var(--muted); font-size:0.8rem; margin-top:3px;">2024년 HBM3E 실패 재현 가능성. 엔비디아 납품 차질 시 주가 급락.</div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="font-size:0.88rem;">🏦 원화 강세 (환율 리스크)</span>
+              <span style="font-size:0.78rem; color:var(--accent3);">중간</span>
+            </div>
+            <div class="risk-bar-bg"><div class="risk-bar" style="width:55%; background:linear-gradient(90deg, var(--accent3), var(--accent2));"></div></div>
+            <div style="color:var(--muted); font-size:0.8rem; margin-top:3px;">수출 기업 특성상 원화 강세 시 실적 약화. 달러 결제 매출 비중 높음.</div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="font-size:0.88rem;">🤖 TSMC·SK하이닉스 경쟁</span>
+              <span style="font-size:0.78rem; color:var(--accent4);">낮음~중간</span>
+            </div>
+            <div class="risk-bar-bg"><div class="risk-bar" style="width:40%; background:linear-gradient(90deg, var(--accent4), var(--accent2));"></div></div>
+            <div style="color:var(--muted); font-size:0.8rem; margin-top:3px;">파운드리 점유율 TSMC 대비 열세 지속. HBM 재역전 가능성.</div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="font-size:0.88rem;">📉 메모리 과잉공급 사이클</span>
+              <span style="font-size:0.78rem; color:var(--accent4);">낮음</span>
+            </div>
+            <div class="risk-bar-bg"><div class="risk-bar" style="width:30%; background:linear-gradient(90deg, var(--accent4), var(--accent2));"></div></div>
+            <div style="color:var(--muted); font-size:0.8rem; margin-top:3px;">AI 수요 둔화 시 메모리 재고 누적 가능성. 단, 2026년은 AI 슈퍼사이클 전망.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div class="highlight red">
+          <strong>⚠️ 투자 주의사항</strong><br>
+          <span style="font-size:0.88rem;">이 리포트는 정보 제공 목적입니다. 주식 투자에는 원금 손실 위험이 있으며, 증권사 목표주가는 달성을 보장하지 않습니다. 실제 투자 결정은 본인의 판단과 책임 하에 하시기 바랍니다.</span>
+        </div>
+        <div class="chart-wrap">
+          <h4 style="color:var(--accent2); margin-bottom:16px; font-size:0.95rem;">주요 분기점 체크리스트</h4>
+          <div style="display:flex; flex-direction:column; gap:10px; font-size:0.87rem;">
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <span style="color:var(--accent4); font-size:1rem; flex-shrink:0;">✅</span>
+              <div><strong>HBM4 세계 최초 양산 성공</strong> <span style="color:var(--muted);">— 2026년 2월 완료</span></div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <span style="color:var(--accent4); font-size:1rem; flex-shrink:0;">✅</span>
+              <div><strong>엔비디아 Vera Rubin 공급사 낙점</strong> <span style="color:var(--muted);">— 확정</span></div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <span style="color:var(--accent3); font-size:1rem; flex-shrink:0;">🔄</span>
+              <div><strong>2026 1Q 실적 발표</strong> <span style="color:var(--muted);">— 2026년 4월 예정</span></div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <span style="color:var(--accent3); font-size:1rem; flex-shrink:0;">🔄</span>
+              <div><strong>HBM4 엔비디아 납품 물량 확대</strong> <span style="color:var(--muted);">— 하반기 본격화</span></div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <span style="color:var(--muted); font-size:1rem; flex-shrink:0;">⏳</span>
+              <div><strong>파운드리 2nm 로드맵</strong> <span style="color:var(--muted);">— 2027년 목표</span></div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <span style="color:var(--muted); font-size:1rem; flex-shrink:0;">⏳</span>
+              <div><strong>영업이익 100조원 달성</strong> <span style="color:var(--muted);">— 낙관 시나리오</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 요약 ====== -->
+  <section>
+    <div class="section-title"><span class="icon">📌</span> 핵심 요약</div>
+    <div class="card">
+      <div class="grid-4">
+        <div style="text-align:center; padding:16px;">
+          <div style="font-size:2rem; margin-bottom:8px;">📉→📈</div>
+          <div style="font-weight:700; margin-bottom:6px;">52,500원에서 V자 반등</div>
+          <div style="color:var(--muted); font-size:0.83rem;">2024년 AI 경쟁 실패 공포 → HBM4 성공으로 신뢰 회복</div>
+        </div>
+        <div style="text-align:center; padding:16px;">
+          <div style="font-size:2rem; margin-bottom:8px;">🧠</div>
+          <div style="font-weight:700; margin-bottom:6px;">HBM4가 게임체인저</div>
+          <div style="color:var(--muted); font-size:0.83rem;">세계 최초 양산으로 AI 반도체 시장 재진입. 엔비디아 공급망 복귀.</div>
+        </div>
+        <div style="text-align:center; padding:16px;">
+          <div style="font-size:2rem; margin-bottom:8px;">💰</div>
+          <div style="font-weight:700; margin-bottom:6px;">목표주가 +53% 여력</div>
+          <div style="color:var(--muted); font-size:0.83rem;">33명 전원 매수. 평균 목표 266,000원. 아직 저평가 구간.</div>
+        </div>
+        <div style="text-align:center; padding:16px;">
+          <div style="font-size:2rem; margin-bottom:8px;">⚠️</div>
+          <div style="font-weight:700; margin-bottom:6px;">리스크도 현실</div>
+          <div style="color:var(--muted); font-size:0.83rem;">미·중 규제, 수율 문제, 경쟁 심화. 투자 전 반드시 검토.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  삼성전자 주가 분석 리포트 | 2026년 3월 기준 | 투자 권유 아님, 정보 제공 목적<br>
+  출처: <a href="https://alphasquare.co.kr/home/insight/posts/36629275-17c5-442e-9379-8064dc091d2f" style="color:var(--accent2);">알파스퀘어</a> ·
+  <a href="https://kr.investing.com/news/stock-market-news/article-1757782" style="color:var(--accent2);">인베스팅닷컴</a> ·
+  <a href="https://www.g-enews.com/article/Global-Biz/2026/02/202602211024544859fbbec65dfb_1" style="color:var(--accent2);">글로벌이코노믹</a> ·
+  <a href="https://finance.thesmileinfo.com/2026/02/2026hbm4dram.html" style="color:var(--accent2);">스마일인포</a> ·
+  KB증권 · SK증권 · 하나증권 리서치
+</footer>
+
+<script>
+const chartDefaults = {
+  plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+  scales: {
+    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+  }
+};
+
+// 1. 주가 추이 (연간 종가 기준 추정)
+const priceCtx = document.getElementById('priceChart').getContext('2d');
+new Chart(priceCtx, {
+  type: 'line',
+  data: {
+    labels: ['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026.02(신고가)'],
+    datasets: [
+      {
+        label: '연중 고점',
+        data: [56000, 58000, 81000, 96800, 74000, 78000, 88000, 170000, 223000],
+        borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)',
+        tension: 0.4, fill: false, pointRadius: 5
+      },
+      {
+        label: '연중 저점',
+        data: [38000, 41000, 43000, 68000, 55000, 58000, 52500, 54000, 140000],
+        borderColor: '#f43f5e', backgroundColor: 'rgba(244,63,94,0.08)',
+        tension: 0.4, fill: '-1', pointRadius: 5
+      },
+      {
+        label: '연말 종가 (추정)',
+        data: [43850, 55200, 81000, 78300, 61000, 71400, 56000, 145000, 173500],
+        borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)',
+        tension: 0.4, borderWidth: 3, pointRadius: 6,
+        pointBackgroundColor: '#6366f1'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#94a3b8' } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()}원` } }
+    },
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+      y: {
+        ticks: { color: '#94a3b8', callback: v => v.toLocaleString()+'원' },
+        grid: { color: 'rgba(255,255,255,0.05)' }
+      }
+    }
+  }
+});
+
+// 2. 증권사 목표주가
+const targetCtx = document.getElementById('targetChart').getContext('2d');
+new Chart(targetCtx, {
+  type: 'bar',
+  data: {
+    labels: ['SK증권', '한국투자', '대신증권', 'KB증권', '하나증권', '현재주가'],
+    datasets: [{
+      label: '목표/현재 주가 (원)',
+      data: [260000, 270000, 270000, 260000, 260000, 173500],
+      backgroundColor: [
+        'rgba(99,102,241,0.7)', 'rgba(34,211,238,0.7)', 'rgba(245,158,11,0.7)',
+        'rgba(16,185,129,0.7)', 'rgba(188,140,255,0.7)', 'rgba(244,63,94,0.5)'
+      ],
+      borderRadius: 8
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString()}원` } }
+    },
+    scales: {
+      x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+      y: { ticks: { color: '#94a3b8', callback: v => (v/10000)+'만' }, grid: { color: 'rgba(255,255,255,0.05)' }, min: 100000 }
+    }
+  }
+});
+
+// 3. 영업이익 추이
+const profitCtx = document.getElementById('profitChart').getContext('2d');
+new Chart(profitCtx, {
+  type: 'bar',
+  data: {
+    labels: ['2021', '2022', '2023', '2024', '2025', '2026E(기본)', '2026E(낙관)'],
+    datasets: [{
+      label: '영업이익 (조원)',
+      data: [51.6, 43.4, 6.6, 33.0, 44.2, 82.0, 100],
+      backgroundColor: [
+        'rgba(99,102,241,0.7)', 'rgba(245,158,11,0.7)', 'rgba(244,63,94,0.6)',
+        'rgba(99,102,241,0.6)', 'rgba(34,211,238,0.6)',
+        'rgba(16,185,129,0.75)', 'rgba(16,185,129,0.4)'
+      ],
+      borderRadius: 8
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}조원` } }
+    },
+    scales: {
+      x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+      y: { ticks: { color: '#94a3b8', callback: v => v+'조' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+    }
+  }
+});
+
+// 4. HBM 점유율
+const hbmCtx = document.getElementById('hbmChart').getContext('2d');
+new Chart(hbmCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['SK하이닉스', '삼성전자 (2026E)', '마이크론', '기타'],
+    datasets: [
+      {
+        label: '2025년',
+        data: [55, 16, 22, 7],
+        backgroundColor: ['rgba(34,211,238,0.3)', 'rgba(99,102,241,0.3)', 'rgba(245,158,11,0.3)', 'rgba(148,163,184,0.2)'],
+        borderColor: '#0a0e1a', borderWidth: 3
+      },
+      {
+        label: '2026년 전망',
+        data: [50, 35, 12, 3],
+        backgroundColor: ['rgba(34,211,238,0.8)', 'rgba(99,102,241,0.85)', 'rgba(245,158,11,0.7)', 'rgba(148,163,184,0.4)'],
+        borderColor: '#0a0e1a', borderWidth: 3
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, padding: 10 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}%` } }
+    }
+  }
+});
+</script>
+</body>
+</html>
